@@ -32,8 +32,6 @@ runConfig:
     - variable: FIREBASE_EMULATOR_HUB
       value: "localhost:4400"
 
-buildConfig:
-  commands:
-    - npm ci
-    - npm run build
-  outputDir: .next
+# Para desarrollo, usamos el servidor de desarrollo de Next.js
+# pero con las variables de entorno inyectadas
+startCommand: "npm run dev"
