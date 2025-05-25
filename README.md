@@ -36,18 +36,16 @@ cd web
 npm install
 ```
 
-3. Set up environment variables:
+3. Start the Firebase App Hosting Emulator:
 ```bash
-cp ../env.example .env.local
-# Edit .env.local with your Firebase configuration
+firebase emulators:start
 ```
 
-4. Start the development server:
+4. Access the application:
 ```bash
-npm run dev
+# App available at http://localhost:5002 (App Hosting Emulator)
+# Static files at http://localhost:5003 (Hosting Emulator)
 ```
-
-The app will be available at `http://localhost:3000`
 
 ## 📦 Deployment
 
@@ -80,12 +78,38 @@ firebase deploy --only hosting:web-app
 
 ## 🔧 Available Scripts
 
-- `npm run dev` - Start development server with Turbopack
+- `firebase emulators:start` - Start Firebase App Hosting Emulator for development
 - `npm run build` - Build and export static application
-- `npm run start` - Start production server (not used for static export)
 - `npm run lint` - Run ESLint
 - `npm run export` - Build and export static files
 - `npm run deploy` - Build and deploy to Firebase Hosting
+
+## 🧪 Firebase App Hosting Emulator
+
+Para desarrollo local, usamos el emulador de Firebase App Hosting que simula exactamente el entorno de producción. Basado en la [documentación oficial de Firebase](https://firebase.google.com/docs/app-hosting/emulate).
+
+### Uso
+
+1. **Iniciar el emulador**:
+```bash
+firebase emulators:start
+```
+
+2. **Acceder a la aplicación**:
+- **App Hosting Emulator**: http://localhost:5002
+- **Hosting Emulator**: http://localhost:5003
+
+### 📋 Configuración
+
+- El archivo `apphosting.local.yaml` está incluido en el repositorio
+- Contiene únicamente claves públicas de Firebase (seguras para commitear)
+- Para API routes, necesitas `service-account-key.json` (descárgalo de Firebase Console)
+- No requiere configuración adicional de variables de entorno
+
+### 📚 Referencias
+
+- [Documentación oficial del App Hosting Emulator](https://firebase.google.com/docs/app-hosting/emulate)
+- [Firebase: ¿Son seguras las claves de configuración?](https://firebase.google.com/docs/projects/learn-more#config-files-objects)
 
 ## 🏗️ Architecture
 
@@ -162,18 +186,26 @@ The deployment pipeline includes:
 
 ## 📝 Environment Variables
 
-Required environment variables (see `env.example`):
+### 🔧 **Development Environment**
 
+This project uses the **Firebase App Hosting Emulator** for local development to simulate production exactly.
+
+#### **Setup Process:**
+
+1. **Clone the repository** - Firebase client configuration is included in `apphosting.local.yaml`
+2. **Add service account key** (for API routes):
+   - Download `service-account-key.json` from Firebase Console
+   - Place it in the project root (already in `.gitignore`)
+3. **Start the emulator:**
 ```bash
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-NEXT_PUBLIC_APP_URL=https://your-domain.com
-NEXT_PUBLIC_USE_FIREBASE_EMULATOR=false
+firebase emulators:start
+# App available at http://localhost:5002
 ```
+
+**Note:** 
+- Firebase client configuration keys are public and included in `apphosting.local.yaml`
+- Only the service account key is private and must be downloaded separately
+- No `.env.local` file needed for the emulator
 
 ## 📋 Documentation
 

@@ -87,7 +87,12 @@ firebase-debug.log
 firestore-debug.log
 
 # Local development
-*.local
+.env.local
+.env.*.local
+*.local.backup*
+
+# Firebase App Hosting Emulator config is now committed
+# apphosting.local.yaml - COMMITTED (contains public keys)
 
 # Firebase service account keys (sensitive)
 service-account-key.json

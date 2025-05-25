@@ -1,1 +1,7 @@
-{"projects":{"default":"weight-challenge-app-dev"}}
+{
+  "projects": {
+    "default": "weight-challenge-app-dev",
+    "development": "weight-challenge-app-dev",
+    "production": "weight-challenge-app-dev"
+  }
+}

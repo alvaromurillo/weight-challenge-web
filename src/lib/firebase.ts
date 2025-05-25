@@ -4,14 +4,113 @@ import { getFirestore, connectFirestoreEmulator, Firestore, initializeFirestore 
 import { getFunctions, connectFunctionsEmulator, Functions } from 'firebase/functions';
 import { getStorage, connectStorageEmulator, FirebaseStorage } from 'firebase/storage';
 
-const firebaseConfigValues = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'demo-key',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'demo-project.firebaseapp.com',
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'demo-project',
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'demo-project.appspot.com',
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '123456789',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:123456789:web:abcdef',
-};
+// Función para obtener la configuración de Firebase
+function getFirebaseConfig() {
+  // Detectar si estamos en el App Hosting Emulator
+  const isAppHostingEmulator = typeof window !== 'undefined' && 
+    (window.location.port === '5002' || process.env.FIREBASE_EMULATOR_HUB);
+  
+  // PRODUCCIÓN Y EMULADOR: Firebase App Hosting inyecta automáticamente la configuración
+  if (typeof window !== 'undefined' && window.FIREBASE_WEBAPP_CONFIG) {
+    console.log('✅ Using Firebase App Hosting configuration (FIREBASE_WEBAPP_CONFIG)');
+    console.log('🔧 App Hosting config detected:', {
+      ...window.FIREBASE_WEBAPP_CONFIG,
+      apiKey: window.FIREBASE_WEBAPP_CONFIG.apiKey ? 'SET' : 'NOT_SET'
+    });
+    return window.FIREBASE_WEBAPP_CONFIG;
+  }
+  
+  // APP HOSTING EMULATOR: Verificar si estamos en el emulador
+  if (isAppHostingEmulator) {
+    console.log('🧪 Detected App Hosting Emulator environment');
+    console.log('🔍 Checking for FIREBASE_WEBAPP_CONFIG injection...');
+    
+    // En el emulador, verificar si la configuración está disponible en process.env
+    if (process.env.FIREBASE_WEBAPP_CONFIG) {
+      console.log('🧪 Found FIREBASE_WEBAPP_CONFIG in process.env, parsing...');
+      try {
+        const config = JSON.parse(process.env.FIREBASE_WEBAPP_CONFIG);
+        console.log('✅ Successfully parsed FIREBASE_WEBAPP_CONFIG from environment');
+        
+        // Inyectar en window para consistencia
+        if (typeof window !== 'undefined') {
+          window.FIREBASE_WEBAPP_CONFIG = config;
+        }
+        
+        return config;
+      } catch (error) {
+        console.error('❌ Failed to parse FIREBASE_WEBAPP_CONFIG:', error);
+      }
+    }
+    
+    // En el emulador, la configuración podría tardar en inyectarse
+    if (typeof window !== 'undefined') {
+      console.log('🌐 Window object available, FIREBASE_WEBAPP_CONFIG:', !!window.FIREBASE_WEBAPP_CONFIG);
+    }
+    
+    console.warn('⚠️ App Hosting Emulator detected but FIREBASE_WEBAPP_CONFIG not found');
+    console.warn('📋 Available environment variables:', Object.keys(process.env).filter(key => key.includes('FIREBASE')));
+  }
+  
+  // DESARROLLO LOCAL: Fallback para desarrollo usando variables de entorno
+  // Nota: En desarrollo siempre deberías usar el Firebase App Hosting Emulator
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔧 Using development configuration with environment variables');
+    console.log('⚠️ Recomendado: Usar Firebase App Hosting Emulator (firebase emulators:start)');
+    console.log('🔍 Environment context:', {
+      NODE_ENV: process.env.NODE_ENV,
+      isAppHostingEmulator,
+      port: typeof window !== 'undefined' ? window.location.port : 'N/A',
+      FIREBASE_EMULATOR_HUB: process.env.FIREBASE_EMULATOR_HUB
+    });
+    
+    // En el cliente, las variables sin NEXT_PUBLIC_ no están disponibles
+    // Así que necesitamos usar una estrategia diferente
+    const requiredVars = {
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID,
+    };
+    
+    // Verificar que todas las variables estén configuradas
+    const missingVars = Object.entries(requiredVars)
+      .filter(([key, value]) => !value)
+      .map(([key]) => key);
+    
+    if (missingVars.length > 0) {
+      console.warn(`⚠️ Missing Firebase environment variables: ${missingVars.join(', ')}`);
+      
+      if (isAppHostingEmulator) {
+        console.warn('🧪 In App Hosting Emulator - this might be expected if config is injected later');
+        console.warn('📋 Available environment variables:', Object.keys(process.env).filter(key => key.includes('FIREBASE')));
+      } else {
+        console.warn('Using demo configuration for development');
+      }
+      
+      return {
+        apiKey: 'demo-key',
+        authDomain: 'demo-project.firebaseapp.com',
+        projectId: 'demo-project',
+        storageBucket: 'demo-project.appspot.com',
+        messagingSenderId: '123456789',
+        appId: '1:123456789:web:abcdef',
+      };
+    }
+    
+    return requiredVars;
+  }
+  
+  // PRODUCCIÓN: Si llegamos aquí, algo está mal
+  throw new Error(
+    'Firebase configuration not available. ' +
+    'Make sure you are deploying to Firebase App Hosting or check your environment variables.'
+  );
+}
+
+const firebaseConfigValues = getFirebaseConfig();
 
 let app: FirebaseApp | undefined;
 let authInstance: Auth | undefined;
@@ -32,6 +131,9 @@ function initializeFirebaseCore() {
       NODE_ENV: process.env.NODE_ENV,
       NEXT_PUBLIC_USE_FIREBASE_EMULATOR: process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR,
       NEXT_PUBLIC_FIRESTORE_FORCE_LONG_POLLING: process.env.NEXT_PUBLIC_FIRESTORE_FORCE_LONG_POLLING,
+      HAS_FIREBASE_WEBAPP_CONFIG: typeof window !== 'undefined' && !!window.FIREBASE_WEBAPP_CONFIG,
+      FIREBASE_API_KEY: process.env.FIREBASE_API_KEY ? 'SET' : 'NOT_SET',
+      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || 'NOT_SET',
     });
 
     if (getApps().length === 0) {
