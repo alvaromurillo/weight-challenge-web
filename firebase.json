@@ -16,8 +16,7 @@
   "emulators": {
     "apphosting": {
       "port": 5002,
-      "rootDirectory": "./",
-      "startCommandOverride": "npm run dev"
+      "rootDirectory": "./"
     },
     "ui": {
       "enabled": true

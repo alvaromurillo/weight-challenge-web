@@ -8,7 +8,9 @@ import { getStorage, connectStorageEmulator, FirebaseStorage } from 'firebase/st
 function getFirebaseConfig() {
   // Detectar si estamos en el App Hosting Emulator
   const isAppHostingEmulator = typeof window !== 'undefined' && 
-    (window.location.port === '5002' || process.env.FIREBASE_EMULATOR_HUB);
+    (window.location.port === '5002' || 
+     process.env.FIREBASE_EMULATOR_HUB || 
+     process.env.FIREBASE_APP_HOSTING_EMULATOR === 'true');
   
   // PRODUCCIÓN Y EMULADOR: Firebase App Hosting inyecta automáticamente la configuración
   if (typeof window !== 'undefined' && window.FIREBASE_WEBAPP_CONFIG) {
@@ -23,7 +25,11 @@ function getFirebaseConfig() {
   // APP HOSTING EMULATOR: Verificar si estamos en el emulador
   if (isAppHostingEmulator) {
     console.log('🧪 Detected App Hosting Emulator environment');
-    console.log('🔍 Checking for FIREBASE_WEBAPP_CONFIG injection...');
+    console.log('🔍 Environment variables:', {
+      FIREBASE_APP_HOSTING_EMULATOR: process.env.FIREBASE_APP_HOSTING_EMULATOR,
+      FIREBASE_WEBAPP_CONFIG: process.env.FIREBASE_WEBAPP_CONFIG ? 'SET' : 'NOT_SET',
+      NODE_ENV: process.env.NODE_ENV
+    });
     
     // En el emulador, verificar si la configuración está disponible en process.env
     if (process.env.FIREBASE_WEBAPP_CONFIG) {
@@ -41,11 +47,6 @@ function getFirebaseConfig() {
       } catch (error) {
         console.error('❌ Failed to parse FIREBASE_WEBAPP_CONFIG:', error);
       }
-    }
-    
-    // En el emulador, la configuración podría tardar en inyectarse
-    if (typeof window !== 'undefined') {
-      console.log('🌐 Window object available, FIREBASE_WEBAPP_CONFIG:', !!window.FIREBASE_WEBAPP_CONFIG);
     }
     
     console.warn('⚠️ App Hosting Emulator detected but FIREBASE_WEBAPP_CONFIG not found');

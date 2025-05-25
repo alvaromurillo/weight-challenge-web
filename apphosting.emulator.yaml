@@ -1,33 +1,25 @@
-# Firebase App Hosting Emulator configuration (RECOMMENDED APPROACH)
-# Based on: https://firebase.google.com/docs/app-hosting/emulate
-# 
-# ✅ This file is designed to be safe to commit and share with colleagues
-# ✅ Uses Cloud Secret Manager for sensitive values (recommended for production teams)
-# ✅ Consider using test-only API keys that don't have access to production data
+# Firebase App Hosting Emulator configuration for development
+# Este archivo está diseñado para ser seguro de commitear según la documentación oficial
+# Basado en: https://firebase.google.com/docs/app-hosting/emulate
 
 runConfig:
   runtime: nodejs18
   
   env:
-    # Simulate the automatic injection of FIREBASE_WEBAPP_CONFIG
-    # This is what Firebase App Hosting does automatically in production
-    # 
-    # 🔑 RECOMMENDATION: Replace with test-only keys for development
-    # 🔑 For production teams: Use Cloud Secret Manager with firebase apphosting:secrets:set
+    # Configuración de Firebase para desarrollo (claves públicas)
     - variable: FIREBASE_WEBAPP_CONFIG
       value: '{"apiKey":"AIzaSyBzSnpSZ2fRq5cIG3hXMuqYXazqri325uI","authDomain":"weight-challenge-app-dev.firebaseapp.com","projectId":"weight-challenge-app-dev","storageBucket":"weight-challenge-app-dev.firebasestorage.app","messagingSenderId":"742316431711","appId":"1:742316431711:web:886c310185aec80dc63eea"}'
     
-    # Application environment for emulator
+    # Variables de entorno para el emulador
     - variable: NODE_ENV
       value: development
     
-    # Emulator specific flags
-    - variable: FIREBASE_EMULATOR_HUB
-      value: localhost:4400
-    
-    # Indicate we're in App Hosting Emulator
     - variable: FIREBASE_APP_HOSTING_EMULATOR
-      value: true
+      value: "true"
+    
+    # URL base para el emulador
+    - variable: NEXT_PUBLIC_APP_URL
+      value: "http://localhost:5002"
 
 buildConfig:
   commands:
