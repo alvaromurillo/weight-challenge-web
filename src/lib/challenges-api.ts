@@ -91,7 +91,12 @@ export const getChallenge = async (challengeId: string): Promise<Challenge | nul
       throw new Error(data.error || 'Failed to fetch challenge');
     }
 
-    const challenge = data.data.challenge;
+    const challenge = data.data;
+    
+    // Check if challenge data exists
+    if (!challenge) {
+      throw new Error('Challenge data not found in response');
+    }
     
     // Convert date strings back to Date objects
     return {
@@ -204,6 +209,11 @@ export const findChallengeByInvitationCode = async (invitationCode: string): Pro
     }
 
     const challenge = data.data.challenge;
+    
+    // Check if challenge data exists
+    if (!challenge) {
+      throw new Error('Challenge data not found in response');
+    }
     
     // Convert date strings back to Date objects
     return {

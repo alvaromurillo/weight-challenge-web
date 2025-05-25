@@ -1,0 +1,122 @@
+---
+description: Guidelines for creating and managing structured task lists in markdown files to systematically track project progress, feature implementation, and development milestones.
+globs: 
+alwaysApply: false
+---
+# Task List Management
+
+Guidelines for creating and managing task lists in markdown files to track project progress
+
+## Task List Creation
+
+1. Create task lists in a markdown file in the `PROJECT_ROOT/AI/Tasks` directory:
+   - Use `PROJECT_ROOT/AI/Tasks/TASKS.md` or a descriptive name relevant to the feature (e.g., `PROJECT_ROOT/AI/Tasks/FEATURE_NAME_TASKS.md`)
+   - Include a clear title and description of the feature being implemented
+   - Include a reference to an RFC.
+
+2. Structure the file with these sections:
+   ```markdown
+   # Feature Name Implementation
+   
+   Brief description of the feature and its purpose.
+   RFC: <path_to_rfc_document>
+   
+   ## Completed Tasks
+   
+   - [x] Task 1 that has been completed
+   - [x] Task 2 that has been completed
+   
+   ## In Progress Tasks
+   
+   - [ ] Task 3 currently being worked on
+   - [ ] Task 4 to be completed soon
+   
+   ## Future Tasks
+   
+   - [ ] Task 5 planned for future implementation
+   - [ ] Task 6 planned for future implementation
+   
+   ## Implementation Plan
+   
+   Detailed description of how the feature will be implemented.
+   
+   ### Relevant Files
+   
+   - path/to/file1.ts - Description of purpose
+   - path/to/file2.ts - Description of purpose
+   ```
+
+## Task List Maintenance
+
+1. Update the task list as you progress:
+   - Mark tasks as completed by changing `[ ]` to `[x]`
+   - Add new tasks as they are identified
+   - Move tasks between sections as appropriate
+
+2. Keep "Relevant Files" section updated with:
+   - File paths that have been created or modified
+   - Brief descriptions of each file's purpose
+   - Status indicators (e.g., ✅) for completed components
+
+3. Add implementation details:
+   - Architecture decisions
+   - Data flow descriptions
+   - Technical components needed
+   - Environment configuration
+
+## AI Instructions
+
+When working with task lists, the AI should:
+
+1. IMPORTANT: Only modify the specified task list file in the `PROJECT_ROOT/AI/Tasks` directory - do not create summaries or progress reports in other files (e.g., README.md)
+2. When asked to update tasks, exclusively focus on marking tasks as completed with [x] in the existing task list file
+3. Mark completed tasks with [x] when finished
+4. Add new tasks discovered during implementation only to the task list file
+5. Maintain the "Relevant Files" section with accurate file paths and descriptions
+6. Document implementation details, especially for complex features
+7. When implementing tasks one by one, first check which task to implement next
+8. After implementing a task, update the file to reflect progress
+9. Do not create any new markdown files to track progress unless explicitly requested
+
+## File Locations
+
+1. ALL task lists must be stored in the `PROJECT_ROOT/AI/Tasks` directory at the root of the project
+2. If a task list file doesn't exist in the Memory directory, create it there
+3. When referencing existing task lists, look for them in the Memory directory first
+4. When asked to update a task list that exists outside the Memory directory, create or update the equivalent file in the Memory directory
+
+## Tracking Progress
+
+1. The task list file in the Memory directory is the single source of truth for tracking implementation progress
+2. Updates on progress should be limited to modifying the existing task list file
+3. If project status summaries are needed, they should be explicitly requested by the user
+
+## Example Task Update
+
+When updating a task from "In Progress" to "Completed":
+
+```markdown
+## In Progress Tasks
+
+- [ ] Implement database schema
+- [ ] Create API endpoints for data access
+
+## Completed Tasks
+
+- [x] Set up project structure
+- [x] Configure environment variables
+```
+
+Should become:
+
+```markdown
+## In Progress Tasks
+
+- [ ] Create API endpoints for data access
+
+## Completed Tasks
+
+- [x] Set up project structure
+- [x] Configure environment variables
+- [x] Implement database schema
+```

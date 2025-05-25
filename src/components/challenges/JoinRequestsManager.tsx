@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { CheckCircle, XCircle, Clock, User, Target, Scale } from 'lucide-react';
 import { JoinRequest } from '@/types';
-import { subscribeToJoinRequests, approveJoinRequest, rejectJoinRequest } from '@/lib/join-requests';
+import { subscribeToJoinRequests, approveJoinRequest, rejectJoinRequest } from '@/lib/join-requests-api';
 import { toast } from 'sonner';
 
 interface JoinRequestsManagerProps {
