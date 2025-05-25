@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { ChallengeCard } from '@/components/challenges/ChallengeCard';
 import { ChallengeDashboard } from '@/components/challenges/ChallengeDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { subscribeToUserChallenges, subscribeToUserWeightLogs, getChallengeStatus, debugUserChallenges } from '@/lib/challenges';
+import { subscribeToUserChallenges, getChallengeStatus } from '@/lib/challenges-api';
+import { subscribeToUserWeightLogs } from '@/lib/challenges-api';
 import { Challenge } from '@/types';
 import Link from 'next/link';
 
@@ -20,9 +21,6 @@ export default function DashboardPage() {
   // Real-time subscription for user challenges
   useEffect(() => {
     if (!user) return;
-
-    // Debug: Check what challenges exist for this user
-    debugUserChallenges(user.uid);
 
     const unsubscribe = subscribeToUserChallenges(user.uid, (challengesData) => {
       console.log('📊 Dashboard: Received challenges:', challengesData.length);

@@ -175,6 +175,11 @@ NEXT_PUBLIC_APP_URL=https://your-domain.com
 NEXT_PUBLIC_USE_FIREBASE_EMULATOR=false
 ```
 
+## 📋 Documentation
+
+- **[Firebase Configuration](./CONFIGURACION_FIREBASE.md)** - Firebase setup guide
+- **[Firebase Best Practices](./FIREBASE_BEST_PRACTICES.md)** - Development guidelines
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

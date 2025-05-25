@@ -1,19 +1,23 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Trophy, Plus, Users, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ChallengeCard } from '@/components/challenges/ChallengeCard';
 import { ChallengeSearchFilter } from '@/components/challenges/ChallengeSearchFilter';
 import { useAuth } from '@/hooks/useAuth';
 import { 
-  getUserLatestWeight, 
+  getUserChallenges,
+  getUserLatestWeight,
+  getChallengeStatus,
   subscribeToUserChallenges, 
-  getChallengeParticipants, 
-  debugUserChallenges,
-  filterAndSortChallenges,
+  getChallengeParticipants,
+  type ParticipantData
+} from '@/lib/challenges-api';
+import { 
+  type ChallengeFilters,
   getDefaultChallengeFilters,
-  ChallengeFilters
+  filterAndSortChallenges
 } from '@/lib/challenges';
 import { Challenge } from '@/types';
 import Link from 'next/link';
@@ -64,9 +68,6 @@ export default function ChallengesClient({ initialChallenges }: ChallengesClient
 
     console.log('🎯 ChallengesClient: User authenticated, setting up challenges subscription');
     setError(null);
-
-    // Debug: Check what challenges exist for this user
-    debugUserChallenges(user.uid);
 
     // Set up real-time listener for user's challenges
     try {

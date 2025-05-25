@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/hooks/useAuth';
-import { findChallengeByInvitationCode, joinChallenge, getChallengeStatus } from '@/lib/challenges';
+import { findChallengeByInvitationCode, joinChallenge, getChallengeStatus } from '@/lib/challenges-api';
 import { Challenge } from '@/types';
 
 // Form validation schema

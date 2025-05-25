@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Challenge } from '@/types';
-import { getChallengeParticipants, getChallengeStatus, ParticipantData } from '@/lib/challenges';
+import { getChallengeParticipants, getChallengeStatus, type ParticipantData } from '@/lib/challenges-api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

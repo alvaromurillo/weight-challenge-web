@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  validateJoinChallenge, 
-  createValidationErrorResponse, 
-  createSuccessResponse,
-  sanitizeString,
-  type JoinChallengeInput
-} from '@/lib/validation';
-import { 
-  verifyAuthToken, 
-  checkRateLimit, 
-  createAuthErrorResponse, 
-  createRateLimitErrorResponse,
-} from '@/lib/auth-api';
-import { findChallengeByInvitationCode, joinChallenge } from '@/lib/challenges';
+import { adminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+import { verifyAuthToken } from '@/lib/auth-api';
+import { createValidationErrorResponse, createSuccessResponse } from '@/lib/validation';
 
 // Prevent static generation for this API route
 export const dynamic = 'force-dynamic';
@@ -20,42 +10,31 @@ export const dynamic = 'force-dynamic';
 // POST /api/challenges/join - Join a challenge using invitation code
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔍 POST /api/challenges/join - Starting request');
+
     // Verify authentication
+    console.log('🔐 Verifying authentication...');
     const authResult = await verifyAuthToken(request);
+    console.log('  Auth result:', { success: authResult.success, hasUser: !!authResult.user });
+    
     if (!authResult.success || !authResult.user) {
+      console.log('❌ Authentication failed:', authResult.error);
       return NextResponse.json(
-        createAuthErrorResponse(authResult.error || 'Authentication required'),
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
     const user = authResult.user;
+    console.log('✅ User authenticated:', { uid: user.uid, email: user.email });
 
-    // Check rate limiting (10 join attempts per hour per user)
-    const rateLimitResult = checkRateLimit(
-      `join_challenge:${user.uid}`,
-      { windowMs: 60 * 60 * 1000, maxRequests: 10 } // 1 hour, 10 requests
-    );
-
-    if (!rateLimitResult.allowed) {
-      return NextResponse.json(
-        createRateLimitErrorResponse(rateLimitResult.resetTime),
-        { 
-          status: 429,
-          headers: {
-            'X-RateLimit-Limit': '10',
-            'X-RateLimit-Remaining': '0',
-            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-          }
-        }
-      );
-    }
-
-    // Parse and validate request body
+    // Parse request body
     let body;
     try {
       body = await request.json();
+      console.log('  Request body:', body);
     } catch (error) {
+      console.log('❌ Invalid JSON in request body:', error);
       return NextResponse.json(
         createValidationErrorResponse([{
           field: 'body',
@@ -66,237 +45,147 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sanitize and prepare input data
-    const joinInput: JoinChallengeInput = {
-      invitationCode: sanitizeString(body.invitationCode || '').toUpperCase(),
-      userId: user.uid,
-      targetWeight: body.targetWeight,
-      startWeight: body.startWeight,
-      goalType: body.goalType,
-    };
-
-    // Validate input
-    const validationResult = validateJoinChallenge(joinInput);
-    if (!validationResult.isValid) {
+    // Validate required fields
+    if (!body.challengeId || typeof body.challengeId !== 'string') {
+      console.log('❌ Invalid challengeId:', body.challengeId);
       return NextResponse.json(
-        createValidationErrorResponse(validationResult.errors),
-        { 
-          status: 400,
-          headers: {
-            'X-RateLimit-Limit': '10',
-            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-          }
-        }
+        createValidationErrorResponse([{
+          field: 'challengeId',
+          message: 'challengeId is required and must be a string',
+          code: 'INVALID_CHALLENGE_ID'
+        }]),
+        { status: 400 }
       );
     }
 
-    // Find the challenge by invitation code
-    const challenge = await findChallengeByInvitationCode(joinInput.invitationCode);
-    
-    if (!challenge) {
+    const { challengeId } = body;
+
+    // Get challenge document using Admin SDK
+    console.log('📄 Fetching challenge document...');
+    const challengeRef = adminDb.collection('challenges').doc(challengeId);
+    const challengeSnap = await challengeRef.get();
+
+    if (!challengeSnap.exists) {
+      console.log('❌ Challenge not found:', challengeId);
       return NextResponse.json(
         createValidationErrorResponse([{
-          field: 'invitationCode',
-          message: 'Invalid invitation code. Please check the code and try again.',
+          field: 'challengeId',
+          message: 'Challenge not found',
           code: 'CHALLENGE_NOT_FOUND'
         }]),
-        { 
-          status: 404,
-          headers: {
-            'X-RateLimit-Limit': '10',
-            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-          }
-        }
+        { status: 404 }
       );
     }
 
-    // Additional business logic validations
-    const now = new Date();
-    const joinByDate = challenge.joinByDate instanceof Date ? challenge.joinByDate : new Date(challenge.joinByDate);
-    const endDate = challenge.endDate instanceof Date ? challenge.endDate : new Date(challenge.endDate);
+    const challengeData = challengeSnap.data();
+    console.log('✅ Challenge found:', {
+      id: challengeId,
+      name: challengeData?.name,
+      participants: challengeData?.participants?.length || 0
+    });
 
-    // Check if challenge is still accepting participants
-    if (now > joinByDate) {
+    // Check if challenge is still active
+    if (!challengeData?.isActive) {
+      console.log('❌ Challenge is not active');
       return NextResponse.json(
         createValidationErrorResponse([{
-          field: 'challenge',
-          message: 'This challenge is no longer accepting new participants. The join deadline has passed.',
-          code: 'JOIN_DEADLINE_PASSED'
-        }]),
-        { 
-          status: 400,
-          headers: {
-            'X-RateLimit-Limit': '10',
-            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-          }
-        }
-      );
-    }
-
-    // Check if challenge has ended
-    if (now > endDate) {
-      return NextResponse.json(
-        createValidationErrorResponse([{
-          field: 'challenge',
-          message: 'This challenge has already ended.',
-          code: 'CHALLENGE_ENDED'
-        }]),
-        { 
-          status: 400,
-          headers: {
-            'X-RateLimit-Limit': '10',
-            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-          }
-        }
-      );
-    }
-
-    // Check if challenge is active
-    if (!challenge.isActive) {
-      return NextResponse.json(
-        createValidationErrorResponse([{
-          field: 'challenge',
-          message: 'This challenge is not currently active.',
+          field: 'challengeId',
+          message: 'This challenge is no longer active',
           code: 'CHALLENGE_INACTIVE'
         }]),
-        { 
-          status: 400,
-          headers: {
-            'X-RateLimit-Limit': '10',
-            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-          }
-        }
+        { status: 400 }
       );
     }
 
     // Check if user is already a participant
-    if (challenge.participants && challenge.participants.includes(user.uid)) {
+    const participants = challengeData.participants || [];
+    if (participants.includes(user.uid)) {
+      console.log('❌ User already a participant');
       return NextResponse.json(
         createValidationErrorResponse([{
-          field: 'user',
-          message: 'You are already a participant in this challenge.',
+          field: 'userId',
+          message: 'You are already a participant in this challenge',
           code: 'ALREADY_PARTICIPANT'
         }]),
-        { 
-          status: 409,
-          headers: {
-            'X-RateLimit-Limit': '10',
-            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-          }
-        }
+        { status: 400 }
       );
     }
 
-    // Check if challenge has reached participant limit
-    const currentParticipants = challenge.participants ? challenge.participants.length : challenge.memberCount || 0;
-    if (currentParticipants >= challenge.participantLimit) {
+    // Check if challenge has ended
+    const endDate = challengeData.endDate?.toDate?.() || new Date(challengeData.endDate);
+    if (new Date() > endDate) {
+      console.log('❌ Challenge has ended');
       return NextResponse.json(
         createValidationErrorResponse([{
-          field: 'challenge',
-          message: 'This challenge has reached its participant limit.',
-          code: 'PARTICIPANT_LIMIT_REACHED'
+          field: 'challengeId',
+          message: 'This challenge has already ended',
+          code: 'CHALLENGE_ENDED'
         }]),
-        { 
-          status: 400,
-          headers: {
-            'X-RateLimit-Limit': '10',
-            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-          }
-        }
+        { status: 400 }
       );
     }
 
-    // Attempt to join the challenge
-    try {
-      await joinChallenge(challenge.id, user.uid);
-    } catch (error) {
-      console.error('Error joining challenge:', error);
-      
-      // Handle specific join errors
-      if (error instanceof Error) {
-        if (error.message.includes('already a participant')) {
-          return NextResponse.json(
-            createValidationErrorResponse([{
-              field: 'user',
-              message: 'You are already a participant in this challenge.',
-              code: 'ALREADY_PARTICIPANT'
-            }]),
-            { 
-              status: 409,
-              headers: {
-                'X-RateLimit-Limit': '10',
-                'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-                'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-              }
-            }
-          );
-        }
-      }
-      
-      throw error; // Re-throw for general error handling
+    // Check participant limit
+    const participantLimit = challengeData.participantLimit || 10;
+    if (participants.length >= participantLimit) {
+      console.log('❌ Challenge is full');
+      return NextResponse.json(
+        createValidationErrorResponse([{
+          field: 'challengeId',
+          message: 'This challenge is full',
+          code: 'CHALLENGE_FULL'
+        }]),
+        { status: 400 }
+      );
     }
 
-    // Return success response with challenge information
-    const responseChallenge = {
-      id: challenge.id,
-      name: challenge.name,
-      description: challenge.description,
-      startDate: challenge.startDate?.toISOString() || null,
-      endDate: challenge.endDate.toISOString(),
-      joinByDate: challenge.joinByDate.toISOString(),
-      creatorId: challenge.creatorId,
-      participantLimit: challenge.participantLimit,
-      memberCount: (challenge.memberCount || 0) + 1, // Increment for new member
-      participants: [...(challenge.participants || []), user.uid],
+    // Add user to participants array using Admin SDK
+    console.log('🔥 Adding user to challenge participants...');
+    await challengeRef.update({
+      participants: FieldValue.arrayUnion(user.uid),
+      memberCount: FieldValue.increment(1),
+      updatedAt: FieldValue.serverTimestamp()
+    });
+
+    console.log('✅ User successfully joined challenge');
+
+    // Get updated challenge data
+    const updatedChallengeSnap = await challengeRef.get();
+    const updatedChallengeData = updatedChallengeSnap.data();
+
+    const challenge = {
+      id: challengeId,
+      name: updatedChallengeData?.name,
+      description: updatedChallengeData?.description,
+      creatorId: updatedChallengeData?.creatorId,
+      invitationCode: updatedChallengeData?.invitationCode,
+      startDate: updatedChallengeData?.startDate?.toDate?.()?.toISOString() || null,
+      endDate: updatedChallengeData?.endDate?.toDate?.()?.toISOString() || null,
+      joinByDate: updatedChallengeData?.joinByDate?.toDate?.()?.toISOString() || null,
+      isActive: updatedChallengeData?.isActive,
+      isArchived: updatedChallengeData?.isArchived || false,
+      participants: updatedChallengeData?.participants || [],
+      memberCount: updatedChallengeData?.memberCount || 0,
+      participantLimit: updatedChallengeData?.participantLimit || 10,
+      createdAt: updatedChallengeData?.createdAt?.toDate?.()?.toISOString() || null,
+      updatedAt: updatedChallengeData?.updatedAt?.toDate?.()?.toISOString() || null,
     };
 
-    return NextResponse.json(
-      createSuccessResponse({
-        challenge: responseChallenge,
-        userGoal: {
-          targetWeight: joinInput.targetWeight,
-          startWeight: joinInput.startWeight,
-          goalType: joinInput.goalType,
-        }
-      }, 'Successfully joined the challenge!'),
-      { 
-        status: 200,
-        headers: {
-          'X-RateLimit-Limit': '10',
-          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-          'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
-        }
-      }
-    );
+    console.log('✅ POST request completed successfully');
+    return NextResponse.json(createSuccessResponse({
+      challenge,
+      message: 'Successfully joined challenge'
+    }));
 
   } catch (error) {
-    console.error('Error joining challenge:', error);
-    
-    // Handle specific error types
-    if (error instanceof Error) {
-      if (error.message.includes('Authentication')) {
-        return NextResponse.json(
-          createAuthErrorResponse(error.message),
-          { status: 401 }
-        );
-      }
-    }
-    
+    console.error('❌ Error in POST /api/challenges/join:', error);
     const err = error as Error;
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to join challenge',
-        message: err.message || 'Unknown error',
-        timestamp: new Date().toISOString(),
-      },
+      createValidationErrorResponse([{
+        field: 'general',
+        message: err.message || 'Failed to join challenge',
+        code: 'JOIN_ERROR'
+      }]),
       { status: 500 }
     );
   }

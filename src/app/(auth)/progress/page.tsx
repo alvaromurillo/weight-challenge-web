@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WeightProgressChart } from '@/components/charts/WeightProgressChart';
 import { useAuth } from '@/hooks/useAuth';
-import { getUserChallenges } from '@/lib/challenges';
+import { getUserChallenges } from '@/lib/challenges-api';
 import { fetchWeightLogs, calculateProgressStats, formatWeight } from '@/lib/weight-logs';
 import { Challenge, WeightLog } from '@/types';
 import { format } from 'date-fns';

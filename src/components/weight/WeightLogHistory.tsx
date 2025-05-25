@@ -28,7 +28,16 @@ export default function WeightLogHistory({ challengeId, onEdit, refreshTrigger }
       
       const result = await api.get(`/api/weight-logs?challengeId=${challengeId}`);
       if (result.success) {
-        setWeightLogs(result.data);
+        // The API returns { success: true, data: { weightLogs: [...], count: number, ... } }
+        const weightLogs = result.data.weightLogs || [];
+        // Convert date strings back to Date objects
+        const processedLogs = weightLogs.map((log: any) => ({
+          ...log,
+          loggedAt: new Date(log.loggedAt),
+          createdAt: new Date(log.createdAt),
+          updatedAt: new Date(log.updatedAt),
+        }));
+        setWeightLogs(processedLogs);
       } else {
         throw new Error(result.error || 'Failed to fetch weight logs');
       }

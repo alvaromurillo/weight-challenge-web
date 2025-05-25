@@ -4,9 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { 
-  subscribeToChallenge, 
-  subscribeToUserWeightLogs, 
+  subscribeToChallenge,
+  subscribeToUserWeightLogs,
   subscribeToChallengeWeightLogs,
+  getChallengeParticipants,
+  getChallengeStatus,
+} from '@/lib/challenges-api';
+import {
   getUsers,
   ParticipantData 
 } from '@/lib/challenges';

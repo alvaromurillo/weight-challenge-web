@@ -31,14 +31,17 @@ export async function fetchWeightLogs(challengeId: string, limit = 50): Promise<
     const response = await fetch(`/api/weight-logs?challengeId=${challengeId}&limit=${limit}`, {
       headers,
     });
-    const result: ApiResponse<WeightLog[]> = await response.json();
+    const result = await response.json();
     
     if (!result.success || !result.data) {
       throw new Error(result.error || 'Failed to fetch weight logs');
     }
     
+    // The API returns { success: true, data: { weightLogs: [...], count: number, ... } }
+    const weightLogs = result.data.weightLogs || [];
+    
     // Convert date strings back to Date objects
-    return result.data.map(log => ({
+    return weightLogs.map((log: any) => ({
       ...log,
       loggedAt: new Date(log.loggedAt),
       createdAt: new Date(log.createdAt),

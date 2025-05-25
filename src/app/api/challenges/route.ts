@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, getDocs, query, orderBy, limit, where, addDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 import { 
   validateCreateChallenge, 
   createValidationErrorResponse, 
@@ -16,8 +15,13 @@ import {
   createRateLimitErrorResponse,
 } from '@/lib/auth-api';
 
+// Prevent static generation for this API route
+export const dynamic = 'force-dynamic';
+
 // GET /api/challenges - Fetch challenges with optional filtering and pagination
 export async function GET(request: NextRequest) {
+  console.log('🔍 GET /api/challenges - Starting request');
+  
   try {
     const { searchParams } = new URL(request.url);
     
@@ -26,11 +30,18 @@ export async function GET(request: NextRequest) {
     const creatorId = searchParams.get('creatorId');
     const status = searchParams.get('status'); // 'active', 'upcoming', 'ended'
     
+    console.log('📋 Request parameters:', {
+      limit: limitParam,
+      creatorId,
+      status
+    });
+    
     // Validate limit parameter
     let maxResults = 10; // default
     if (limitParam) {
       const parsedLimit = parseInt(limitParam, 10);
       if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+        console.log('❌ Invalid limit parameter:', limitParam);
         return NextResponse.json(
           createValidationErrorResponse([{
             field: 'limit',
@@ -45,6 +56,7 @@ export async function GET(request: NextRequest) {
 
     // Validate status parameter
     if (status && !['active', 'upcoming', 'ended'].includes(status)) {
+      console.log('❌ Invalid status parameter:', status);
       return NextResponse.json(
         createValidationErrorResponse([{
           field: 'status',
@@ -55,19 +67,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build Firestore query
-    const challengesRef = collection(db, 'challenges');
-    let q = query(challengesRef, orderBy('createdAt', 'desc'), limit(maxResults));
+    // Initialize Firebase Admin SDK
+    console.log('🔥 Initializing Firebase Admin SDK...');
+    const db = getAdminFirestore();
+
+    // Build Firestore query using Admin SDK
+    console.log('📄 Fetching challenges with Admin SDK...');
+    const challengesRef = db.collection('challenges');
+    let query = challengesRef.orderBy('createdAt', 'desc').limit(maxResults);
 
     // Add filters if provided
     if (creatorId) {
-      q = query(challengesRef, where('creatorId', '==', creatorId), orderBy('createdAt', 'desc'), limit(maxResults));
+      query = challengesRef.where('creatorId', '==', creatorId).orderBy('createdAt', 'desc').limit(maxResults);
     }
 
     // Note: Status filtering would require additional logic to compare dates
     // For now, we'll fetch all and filter in memory for simplicity
-    const querySnapshot = await getDocs(q);
-    let challenges = querySnapshot.docs.map(doc => {
+    const querySnapshot = await query.get();
+    let challenges = querySnapshot.docs.map((doc: any) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -100,6 +117,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    console.log('✅ Found challenges:', challenges.length);
+    console.log('✅ GET request completed successfully');
+
     return NextResponse.json(createSuccessResponse({
       challenges,
       count: challenges.length,
@@ -111,7 +131,7 @@ export async function GET(request: NextRequest) {
     }));
 
   } catch (error) {
-    console.error('Error fetching challenges:', error);
+    console.error('❌ Error fetching challenges:', error);
     
     return NextResponse.json(
       {
@@ -127,10 +147,14 @@ export async function GET(request: NextRequest) {
 
 // POST /api/challenges - Create a new challenge with comprehensive validation
 export async function POST(request: NextRequest) {
+  console.log('🔍 POST /api/challenges - Starting request');
+  
   try {
     // Verify authentication
+    console.log('🔐 Verifying authentication...');
     const authResult = await verifyAuthToken(request);
     if (!authResult.success || !authResult.user) {
+      console.log('❌ Authentication failed:', authResult.error);
       return NextResponse.json(
         createAuthErrorResponse(authResult.error || 'Authentication required'),
         { status: 401 }
@@ -138,6 +162,10 @@ export async function POST(request: NextRequest) {
     }
 
     const user = authResult.user;
+    console.log('✅ User authenticated:', {
+      uid: user.uid,
+      email: user.email
+    });
 
     // Check rate limiting (5 challenges per hour per user)
     const rateLimitResult = checkRateLimit(
@@ -146,6 +174,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (!rateLimitResult.allowed) {
+      console.log('❌ Rate limit exceeded for user:', user.uid);
       return NextResponse.json(
         createRateLimitErrorResponse(rateLimitResult.resetTime),
         { 
@@ -164,6 +193,7 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch (error) {
+      console.log('❌ Invalid JSON in request body');
       return NextResponse.json(
         createValidationErrorResponse([{
           field: 'body',
@@ -173,6 +203,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    console.log('📝 Parsing request body...');
 
     // Sanitize string inputs
     const sanitizedInput: CreateChallengeInput = {
@@ -189,6 +221,7 @@ export async function POST(request: NextRequest) {
     // Validate input
     const validationResult = validateCreateChallenge(sanitizedInput);
     if (!validationResult.isValid) {
+      console.log('❌ Validation failed:', validationResult.errors);
       return NextResponse.json(
         createValidationErrorResponse(validationResult.errors),
         { status: 400 }
@@ -198,14 +231,18 @@ export async function POST(request: NextRequest) {
     // Generate invitation code (simple implementation for now)
     const invitationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+    // Initialize Firebase Admin SDK
+    console.log('🔥 Initializing Firebase Admin SDK...');
+    const db = getAdminFirestore();
+
     // Create challenge document
     const challengeData = {
       name: sanitizedInput.name,
       description: sanitizedInput.description,
-      endDate: Timestamp.fromDate(new Date(sanitizedInput.endDate)),
-      joinByDate: Timestamp.fromDate(new Date(sanitizedInput.joinByDate)),
+      endDate: new Date(sanitizedInput.endDate),
+      joinByDate: new Date(sanitizedInput.joinByDate),
       creatorId: user.uid,
-      createdAt: Timestamp.now(),
+      createdAt: new Date(),
       memberCount: 1, // Creator is automatically a member
       participantLimit: sanitizedInput.participantLimit,
       invitationCode,
@@ -213,8 +250,11 @@ export async function POST(request: NextRequest) {
       participants: [user.uid], // Add creator to participants array
     };
 
-    // Add to Firestore
-    const docRef = await addDoc(collection(db, 'challenges'), challengeData);
+    console.log('🔥 Creating challenge document with Admin SDK...');
+    // Add to Firestore using Admin SDK
+    const docRef = await db.collection('challenges').add(challengeData);
+
+    console.log('✅ Challenge created successfully with ID:', docRef.id);
 
     // TODO: Create initial challenge membership for creator
     // This would typically be done via a Cloud Function to ensure consistency
@@ -226,9 +266,9 @@ export async function POST(request: NextRequest) {
         challenge: {
           id: docRef.id,
           ...challengeData,
-          endDate: challengeData.endDate.toDate().toISOString(),
-          joinByDate: challengeData.joinByDate.toDate().toISOString(),
-          createdAt: challengeData.createdAt.toDate().toISOString(),
+          endDate: challengeData.endDate.toISOString(),
+          joinByDate: challengeData.joinByDate.toISOString(),
+          createdAt: challengeData.createdAt.toISOString(),
         }
       }, 'Challenge created successfully'),
       { 
@@ -242,7 +282,7 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('Error creating challenge:', error);
+    console.error('❌ Error creating challenge:', error);
     
     // Handle specific error types
     const err = error as Error;

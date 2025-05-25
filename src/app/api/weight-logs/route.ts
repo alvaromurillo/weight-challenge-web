@@ -12,17 +12,21 @@ import {
   createAuthErrorResponse, 
   createRateLimitErrorResponse,
 } from '@/lib/auth-api';
-import { getUserWeightLogs, addWeightLog } from '@/lib/challenges';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 // Prevent static generation for this API route
 export const dynamic = 'force-dynamic';
 
 // GET /api/weight-logs - Fetch weight logs for a user and challenge
 export async function GET(request: NextRequest) {
+  console.log('🔍 GET /api/weight-logs - Starting request');
+  
   try {
     // Verify authentication
+    console.log('🔐 Verifying authentication...');
     const authResult = await verifyAuthToken(request);
     if (!authResult.success || !authResult.user) {
+      console.log('❌ Authentication failed:', authResult.error);
       return NextResponse.json(
         createAuthErrorResponse(authResult.error || 'Authentication required'),
         { status: 401 }
@@ -30,12 +34,25 @@ export async function GET(request: NextRequest) {
     }
 
     const user = authResult.user;
+    console.log('✅ User authenticated:', {
+      uid: user.uid,
+      email: user.email
+    });
+
     const { searchParams } = new URL(request.url);
     const challengeId = searchParams.get('challengeId');
     const userId = searchParams.get('userId') || user.uid; // Default to current user
+    const limit = parseInt(searchParams.get('limit') || '50');
+
+    console.log('📋 Request parameters:', {
+      challengeId,
+      userId,
+      limit
+    });
 
     // Validate required parameters
     if (!challengeId) {
+      console.log('❌ Missing challengeId parameter');
       return NextResponse.json(
         createValidationErrorResponse([{
           field: 'challengeId',
@@ -50,7 +67,7 @@ export async function GET(request: NextRequest) {
     if (userId !== user.uid) {
       // In a real implementation, you would check if the user has permission
       // to view other users' weight logs (e.g., if they're in the same challenge)
-      // For now, we'll allow it but this should be restricted based on business rules
+      console.log('⚠️ User requesting data for different user:', { requestingUser: user.uid, targetUser: userId });
     }
 
     // Check rate limiting (100 requests per hour per user)
@@ -60,6 +77,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (!rateLimitResult.allowed) {
+      console.log('❌ Rate limit exceeded for user:', user.uid);
       return NextResponse.json(
         createRateLimitErrorResponse(rateLimitResult.resetTime),
         { 
@@ -73,8 +91,37 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch weight logs
-    const weightLogs = await getUserWeightLogs(userId, challengeId);
+    // Initialize Firebase Admin SDK
+    console.log('🔥 Initializing Firebase Admin SDK...');
+    const db = getAdminFirestore();
+
+    // Fetch weight logs using Admin SDK
+    console.log('📄 Fetching weight logs with Admin SDK...');
+    const weightLogsRef = db.collection('weight_logs');
+    const query = weightLogsRef
+      .where('userId', '==', userId)
+      .where('challengeId', '==', challengeId)
+      .orderBy('weighedAt', 'desc')
+      .limit(limit);
+
+    const snapshot = await query.get();
+    
+    const weightLogs = snapshot.docs.map((doc: any) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        userId: data.userId,
+        challengeId: data.challengeId,
+        weight: data.weight,
+        unit: data.unit || 'kg',
+        loggedAt: data.weighedAt?.toDate?.()?.toISOString() || data.weighedAt || new Date().toISOString(),
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt || new Date().toISOString(),
+      };
+    });
+
+    console.log('✅ Found weight logs:', weightLogs.length);
+    console.log('✅ GET request completed successfully');
 
     return NextResponse.json(
       createSuccessResponse({
@@ -93,7 +140,7 @@ export async function GET(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('Error fetching weight logs:', error);
+    console.error('❌ Error fetching weight logs:', error);
     
     return NextResponse.json(
       {
