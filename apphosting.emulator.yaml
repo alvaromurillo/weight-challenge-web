@@ -17,9 +17,20 @@ runConfig:
     - variable: FIREBASE_APP_HOSTING_EMULATOR
       value: "true"
     
-    # URL base para el emulador
+    # Configuración de emuladores
+    - variable: NEXT_PUBLIC_USE_FIREBASE_EMULATOR
+      value: "true"
+    
+    - variable: NEXT_PUBLIC_FIRESTORE_FORCE_LONG_POLLING
+      value: "false"
+    
+    # URL base para el emulador (puerto 5002)
     - variable: NEXT_PUBLIC_APP_URL
       value: "http://localhost:5002"
+    
+    # Hub de emuladores
+    - variable: FIREBASE_EMULATOR_HUB
+      value: "localhost:4400"
 
 buildConfig:
   commands:

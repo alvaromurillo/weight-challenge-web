@@ -15,7 +15,7 @@ const getActionCodeSettings = (): ActionCodeSettings => {
     ? `${process.env.NEXT_PUBLIC_APP_URL}/auth-action`
     : typeof window !== 'undefined' 
       ? `${window.location.origin}/auth-action`
-      : 'http://localhost:3001/auth-action'; // Default fallback for SSR
+      : 'http://localhost:5002/auth-action'; // Default fallback for emulator
   
   return {
     url,
