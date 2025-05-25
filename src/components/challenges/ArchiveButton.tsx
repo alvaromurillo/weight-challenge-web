@@ -45,11 +45,42 @@ export function ArchiveButton({
       return;
     }
 
+    // Debug: Verificar ownership antes de hacer la petición
+    console.log('🔍 Archive Debug Info:');
+    console.log('Current User ID:', user.uid);
+    console.log('Current User Email:', user.email);
+    console.log('Challenge ID:', challenge.id);
+    console.log('Challenge Creator ID:', challenge.creatorId);
+    console.log('User is creator:', user.uid === challenge.creatorId);
+    console.log('Challenge current archived status:', challenge.isArchived);
+
+    // Verificar ownership en el frontend
+    if (user.uid !== challenge.creatorId) {
+      toast({
+        title: 'Permission Denied',
+        description: 'Only the challenge creator can archive/unarchive this challenge',
+        variant: 'destructive',
+      });
+      console.error('❌ User is not the creator of this challenge');
+      return;
+    }
+
     setIsLoading(true);
     
     try {
       // Get the Firebase Auth token
       const token = await user.getIdToken();
+      console.log('🔑 Got Firebase token, length:', token.length);
+      
+      const requestBody = {
+        isArchived: !challenge.isArchived,
+      };
+      
+      console.log('📤 Sending PATCH request:', {
+        url: `/api/challenges/${challenge.id}`,
+        method: 'PATCH',
+        body: requestBody
+      });
       
       const response = await fetch(`/api/challenges/${challenge.id}`, {
         method: 'PATCH',
@@ -57,17 +88,20 @@ export function ArchiveButton({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          isArchived: !challenge.isArchived,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response ok:', response.ok);
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update challenge');
+        console.error('❌ API Error Response:', errorData);
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to update challenge`);
       }
 
       const result = await response.json();
+      console.log('✅ API Success Response:', result);
       
       if (result.success) {
         toast({
@@ -83,7 +117,7 @@ export function ArchiveButton({
         throw new Error(result.error || 'Failed to update challenge');
       }
     } catch (error) {
-      console.error('Error updating challenge archive status:', error);
+      console.error('❌ Error updating challenge archive status:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to update challenge',
@@ -97,6 +131,11 @@ export function ArchiveButton({
   const isArchived = challenge.isArchived;
   const actionText = isArchived ? 'Unarchive' : 'Archive';
   const Icon = isArchived ? ArchiveRestore : Archive;
+
+  // Solo mostrar el botón si el usuario es el creador
+  if (user?.uid !== challenge.creatorId) {
+    return null;
+  }
 
   return (
     <AlertDialog>
