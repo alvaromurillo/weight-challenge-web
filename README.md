@@ -101,10 +101,11 @@ firebase emulators:start
 
 ### 📋 Configuración
 
-- El archivo `apphosting.local.yaml` está incluido en el repositorio
+- El archivo `apphosting.emulator.yaml` está incluido en el repositorio
 - Contiene únicamente claves públicas de Firebase (seguras para commitear)
 - Para API routes, necesitas `service-account-key.json` (descárgalo de Firebase Console)
-- No requiere configuración adicional de variables de entorno
+- La configuración se inyecta automáticamente en el entorno del emulador
+- Sigue las mejores prácticas oficiales de Firebase App Hosting
 
 ### 📚 Referencias
 
@@ -192,7 +193,7 @@ This project uses the **Firebase App Hosting Emulator** for local development to
 
 #### **Setup Process:**
 
-1. **Clone the repository** - Firebase client configuration is included in `apphosting.local.yaml`
+1. **Clone the repository** - Firebase client configuration is included in `apphosting.emulator.yaml`
 2. **Add service account key** (for API routes):
    - Download `service-account-key.json` from Firebase Console
    - Place it in the project root (already in `.gitignore`)
@@ -203,9 +204,9 @@ firebase emulators:start
 ```
 
 **Note:** 
-- Firebase client configuration keys are public and included in `apphosting.local.yaml`
+- Firebase client configuration keys are public and included in `apphosting.emulator.yaml`
 - Only the service account key is private and must be downloaded separately
-- No `.env.local` file needed for the emulator
+- The emulator automatically injects `FIREBASE_WEBAPP_CONFIG` from the configuration file
 
 ## 📋 Documentation
 
