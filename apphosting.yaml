@@ -1,0 +1,48 @@
+# Firebase App Hosting configuration
+# Following best practices from: https://firebase.google.com/docs/app-hosting/firebase-sdks
+
+# Runtime configuration
+runConfig:
+  # Use Node.js 18 or later for best Firebase SDK compatibility
+  runtime: nodejs18
+  
+  # Environment variables for Firebase SDKs
+  env:
+    # Firebase Admin SDK configuration
+    # In production, FIREBASE_CONFIG will be automatically set by App Hosting
+    # For custom configuration, uncomment and modify:
+    # - variable: FIREBASE_CONFIG
+    #   value: '{"projectId":"weight-challenge-app-dev","databaseURL":"https://weight-challenge-app-dev-default-rtdb.firebaseio.com"}'
+    
+    # Firebase JavaScript SDK configuration
+    # FIREBASE_WEBAPP_CONFIG is automatically set by App Hosting
+    # For custom configuration, uncomment and modify:
+    # - variable: FIREBASE_WEBAPP_CONFIG
+    #   value: '{"apiKey":"your-api-key","appId":"your-app-id","authDomain":"weight-challenge-app-dev.firebaseapp.com","databaseURL":"https://weight-challenge-app-dev-default-rtdb.firebaseio.com","messagingSenderId":"742316431711","projectId":"weight-challenge-app-dev","storageBucket":"weight-challenge-app-dev.firebasestorage.app"}'
+    
+    # Application environment
+    - variable: NODE_ENV
+      value: production
+    
+    # Firebase service account key for production (if needed)
+    # This should be set as a secret in the Firebase console
+    # - variable: FIREBASE_SERVICE_ACCOUNT_KEY
+    #   secret: firebase-service-account-key
+
+# Build configuration
+buildConfig:
+  # Build command
+  commands:
+    - npm ci
+    - npm run build
+  
+  # Output directory
+  outputDir: .next
+
+# Optional: CPU and memory allocation
+# cpu: 1
+# memory: 1Gi
+
+# Optional: Scaling configuration
+# minInstances: 0
+# maxInstances: 100 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { 
   validateUpdateChallenge, 
   createValidationErrorResponse, 
@@ -37,10 +37,10 @@ export async function GET(
     }
 
     // Get challenge document from Firestore
-    const challengeRef = doc(db, 'challenges', challengeId);
-    const challengeSnap = await getDoc(challengeRef);
+    const challengeRef = adminDb.collection('challenges').doc(challengeId);
+    const challengeSnap = await challengeRef.get();
 
-    if (!challengeSnap.exists()) {
+    if (!challengeSnap.exists) {
       return NextResponse.json(
         {
           success: false,
@@ -52,6 +52,17 @@ export async function GET(
     }
 
     const challengeData = challengeSnap.data();
+    if (!challengeData) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Challenge data not found',
+          timestamp: new Date().toISOString(),
+        },
+        { status: 404 }
+      );
+    }
+
     const challenge = {
       id: challengeSnap.id,
       ...challengeData,
@@ -131,10 +142,10 @@ export async function PUT(
     }
 
     // Get challenge document from Firestore
-    const challengeRef = doc(db, 'challenges', challengeId);
-    const challengeSnap = await getDoc(challengeRef);
+    const challengeRef = adminDb.collection('challenges').doc(challengeId);
+    const challengeSnap = await challengeRef.get();
 
-    if (!challengeSnap.exists()) {
+    if (!challengeSnap.exists) {
       return NextResponse.json(
         {
           success: false,
@@ -146,7 +157,7 @@ export async function PUT(
     }
 
     const challengeData = challengeSnap.data();
-    if (challengeData.creatorId !== user.uid) {
+    if (!challengeData || challengeData.creatorId !== user.uid) {
       return NextResponse.json(
         createAuthErrorResponse('Only the challenge creator can update this challenge'),
         { status: 403 }
@@ -216,7 +227,7 @@ export async function PUT(
 
     // Prepare Firestore update data
     const updateData: any = {
-      updatedAt: Timestamp.now(),
+      updatedAt: FieldValue.serverTimestamp(),
     };
 
     if (updateInput.name !== undefined) {
@@ -232,10 +243,10 @@ export async function PUT(
     }
 
     // Update the challenge
-    await updateDoc(challengeRef, updateData);
+    await challengeRef.update(updateData);
 
     // Fetch updated challenge data
-    const updatedSnap = await getDoc(challengeRef);
+    const updatedSnap = await challengeRef.get();
     const updatedData = updatedSnap.data();
     
     const updatedChallenge = {
@@ -332,10 +343,10 @@ export async function DELETE(
     }
 
     // Get challenge document from Firestore
-    const challengeRef = doc(db, 'challenges', challengeId);
-    const challengeSnap = await getDoc(challengeRef);
+    const challengeRef = adminDb.collection('challenges').doc(challengeId);
+    const challengeSnap = await challengeRef.get();
 
-    if (!challengeSnap.exists()) {
+    if (!challengeSnap.exists) {
       return NextResponse.json(
         {
           success: false,
@@ -347,7 +358,7 @@ export async function DELETE(
     }
 
     const challengeData = challengeSnap.data();
-    if (challengeData.creatorId !== user.uid) {
+    if (!challengeData || challengeData.creatorId !== user.uid) {
       return NextResponse.json(
         createAuthErrorResponse('Only the challenge creator can delete this challenge'),
         { status: 403 }
@@ -383,7 +394,7 @@ export async function DELETE(
     }
 
     // Delete the challenge
-    await deleteDoc(challengeRef);
+    await challengeRef.delete();
 
     // TODO: Also delete related documents (memberships, weight logs, etc.)
     // This would typically be done via a Cloud Function to ensure consistency
@@ -430,9 +441,13 @@ export async function PATCH(
 ) {
   try {
     const { id: challengeId } = await params;
+    
+    console.log('🔍 PATCH /api/challenges/[id] - Starting request');
+    console.log('  Challenge ID:', challengeId);
 
     // Validate challenge ID
     if (!challengeId || !isValidString(challengeId, 255)) {
+      console.log('❌ Invalid challenge ID');
       return NextResponse.json(
         createValidationErrorResponse([{
           field: 'id',
@@ -444,8 +459,12 @@ export async function PATCH(
     }
 
     // Verify authentication
+    console.log('🔐 Verifying authentication...');
     const authResult = await verifyAuthToken(request);
+    console.log('  Auth result:', { success: authResult.success, hasUser: !!authResult.user });
+    
     if (!authResult.success || !authResult.user) {
+      console.log('❌ Authentication failed:', authResult.error);
       return NextResponse.json(
         createAuthErrorResponse(authResult.error || 'Authentication required'),
         { status: 401 }
@@ -453,6 +472,7 @@ export async function PATCH(
     }
 
     const user = authResult.user;
+    console.log('✅ User authenticated:', { uid: user.uid, email: user.email });
 
     // Check rate limiting (20 archive/unarchive actions per hour per user)
     const rateLimitResult = checkRateLimit(
@@ -461,6 +481,7 @@ export async function PATCH(
     );
 
     if (!rateLimitResult.allowed) {
+      console.log('❌ Rate limit exceeded for user:', user.uid);
       return NextResponse.json(
         createRateLimitErrorResponse(rateLimitResult.resetTime),
         { 
@@ -474,11 +495,13 @@ export async function PATCH(
       );
     }
 
-    // Get challenge document from Firestore
-    const challengeRef = doc(db, 'challenges', challengeId);
-    const challengeSnap = await getDoc(challengeRef);
+    // Get challenge document from Firestore using Admin SDK
+    console.log('📄 Fetching challenge document...');
+    const challengeRef = adminDb.collection('challenges').doc(challengeId);
+    const challengeSnap = await challengeRef.get();
 
-    if (!challengeSnap.exists()) {
+    if (!challengeSnap.exists) {
+      console.log('❌ Challenge not found:', challengeId);
       return NextResponse.json(
         {
           success: false,
@@ -490,7 +513,19 @@ export async function PATCH(
     }
 
     const challengeData = challengeSnap.data();
-    if (challengeData.creatorId !== user.uid) {
+    console.log('✅ Challenge found:', {
+      id: challengeId,
+      name: challengeData?.name,
+      creatorId: challengeData?.creatorId,
+      currentUserId: user.uid,
+      isCreator: challengeData?.creatorId === user.uid
+    });
+
+    if (!challengeData || challengeData.creatorId !== user.uid) {
+      console.log('❌ Permission denied - user is not creator:', {
+        challengeCreator: challengeData?.creatorId,
+        currentUser: user.uid
+      });
       return NextResponse.json(
         createAuthErrorResponse('Only the challenge creator can archive/unarchive this challenge'),
         { status: 403 }
@@ -498,10 +533,13 @@ export async function PATCH(
     }
 
     // Parse and validate request body
+    console.log('📝 Parsing request body...');
     let body;
     try {
       body = await request.json();
+      console.log('  Request body:', body);
     } catch (error) {
+      console.log('❌ Invalid JSON in request body:', error);
       return NextResponse.json(
         createValidationErrorResponse([{
           field: 'body',
@@ -514,6 +552,7 @@ export async function PATCH(
 
     // Validate archive action
     if (typeof body.isArchived !== 'boolean') {
+      console.log('❌ Invalid isArchived value:', body.isArchived);
       return NextResponse.json(
         createValidationErrorResponse([{
           field: 'isArchived',
@@ -524,14 +563,28 @@ export async function PATCH(
       );
     }
 
-    // Update challenge archive status
-    await updateDoc(challengeRef, {
-      isArchived: body.isArchived,
-      updatedAt: Timestamp.now()
-    });
+    // Update challenge archive status using Admin SDK
+    console.log('🔥 Attempting Firestore update with Admin SDK...');
+    console.log('  Update data:', { isArchived: body.isArchived });
+    console.log('  User context:', { uid: user.uid, email: user.email });
+    
+    try {
+      await challengeRef.update({
+        isArchived: body.isArchived,
+        updatedAt: FieldValue.serverTimestamp()
+      });
+      console.log('✅ Firestore update successful');
+    } catch (firestoreError) {
+      console.error('❌ Firestore update failed:', firestoreError);
+      const err = firestoreError as Error;
+      console.error('  Error code:', (err as any).code);
+      console.error('  Error message:', err.message);
+      throw firestoreError; // Re-throw to be caught by outer catch
+    }
 
     // Get updated challenge data
-    const updatedChallengeSnap = await getDoc(challengeRef);
+    console.log('📄 Fetching updated challenge data...');
+    const updatedChallengeSnap = await challengeRef.get();
     const updatedChallengeData = updatedChallengeSnap.data();
     
     const updatedChallenge = {
@@ -545,6 +598,7 @@ export async function PATCH(
       updatedAt: updatedChallengeData?.updatedAt?.toDate?.()?.toISOString() || null,
     };
 
+    console.log('✅ PATCH request completed successfully');
     return NextResponse.json(
       createSuccessResponse(
         updatedChallenge,
@@ -553,8 +607,17 @@ export async function PATCH(
     );
 
   } catch (error) {
-    console.error('Error archiving/unarchiving challenge:', error);
+    console.error('❌ Error archiving/unarchiving challenge:', error);
     const err = error as Error;
+    
+    // Log detailed error information
+    console.error('  Error details:', {
+      name: err.name,
+      message: err.message,
+      code: (err as any).code,
+      stack: err.stack
+    });
+    
     return NextResponse.json(
       {
         success: false,

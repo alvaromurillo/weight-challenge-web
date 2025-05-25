@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Archive, ArchiveRestore, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,8 +32,35 @@ export function ArchiveButton({
   size = 'sm'
 }: ArchiveButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [canModify, setCanModify] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+
+  // Verificar ownership cuando el usuario o challenge cambien
+  useEffect(() => {
+    const checkOwnership = () => {
+      if (authLoading || !user) {
+        setCanModify(false);
+        return;
+      }
+
+      const isCreator = user.uid === challenge.creatorId;
+      setCanModify(isCreator);
+      
+      // Debug logging
+      console.log('🔍 ArchiveButton ownership check:', {
+        challengeId: challenge.id,
+        challengeName: challenge.name,
+        userId: user.uid,
+        userEmail: user.email,
+        creatorId: challenge.creatorId,
+        isCreator,
+        canModify: isCreator
+      });
+    };
+
+    checkOwnership();
+  }, [user, authLoading, challenge.creatorId, challenge.id, challenge.name]);
 
   const handleArchiveToggle = async () => {
     if (!user) {
@@ -45,23 +72,20 @@ export function ArchiveButton({
       return;
     }
 
-    // Debug: Verificar ownership antes de hacer la petición
-    console.log('🔍 Archive Debug Info:');
-    console.log('Current User ID:', user.uid);
-    console.log('Current User Email:', user.email);
-    console.log('Challenge ID:', challenge.id);
-    console.log('Challenge Creator ID:', challenge.creatorId);
-    console.log('User is creator:', user.uid === challenge.creatorId);
-    console.log('Challenge current archived status:', challenge.isArchived);
-
-    // Verificar ownership en el frontend
+    // Doble verificación de ownership antes de hacer la petición
     if (user.uid !== challenge.creatorId) {
+      console.error('❌ SECURITY: User attempted to modify challenge they do not own', {
+        userId: user.uid,
+        userEmail: user.email,
+        challengeId: challenge.id,
+        creatorId: challenge.creatorId
+      });
+      
       toast({
         title: 'Permission Denied',
         description: 'Only the challenge creator can archive/unarchive this challenge',
         variant: 'destructive',
       });
-      console.error('❌ User is not the creator of this challenge');
       return;
     }
 
@@ -70,19 +94,21 @@ export function ArchiveButton({
     try {
       // Get the Firebase Auth token
       const token = await user.getIdToken();
-      console.log('🔑 Got Firebase token, length:', token.length);
+      console.log('🔑 Got Firebase token for archive operation');
       
       const requestBody = {
         isArchived: !challenge.isArchived,
       };
       
       console.log('📤 Sending PATCH request:', {
-        url: `/api/challenges/${challenge.id}`,
+        url: `/api/challenges/${challenge.id}/archive`,
         method: 'PATCH',
-        body: requestBody
+        body: requestBody,
+        userId: user.uid,
+        creatorId: challenge.creatorId
       });
       
-      const response = await fetch(`/api/challenges/${challenge.id}`, {
+      const response = await fetch(`/api/challenges/${challenge.id}/archive`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -92,7 +118,6 @@ export function ArchiveButton({
       });
 
       console.log('📥 Response status:', response.status);
-      console.log('📥 Response ok:', response.ok);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -128,14 +153,25 @@ export function ArchiveButton({
     }
   };
 
+  // No mostrar nada mientras se carga la autenticación
+  if (authLoading) {
+    return null;
+  }
+
+  // No mostrar el botón si no hay usuario o no puede modificar
+  if (!user || !canModify) {
+    console.log('🚫 ArchiveButton hidden:', {
+      hasUser: !!user,
+      canModify,
+      challengeId: challenge.id,
+      reason: !user ? 'No user' : 'Not creator'
+    });
+    return null;
+  }
+
   const isArchived = challenge.isArchived;
   const actionText = isArchived ? 'Unarchive' : 'Archive';
   const Icon = isArchived ? ArchiveRestore : Archive;
-
-  // Solo mostrar el botón si el usuario es el creador
-  if (user?.uid !== challenge.creatorId) {
-    return null;
-  }
 
   return (
     <AlertDialog>

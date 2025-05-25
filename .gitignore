@@ -88,3 +88,12 @@ firestore-debug.log
 
 # Local development
 *.local
+
+# Firebase service account keys (sensitive)
+service-account-key.json
+*-service-account-key.json
+
+# Debug and temporary files
+debug-*.js
+test-*.js
+SOLUCION_*.md
