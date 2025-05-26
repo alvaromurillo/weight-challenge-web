@@ -236,29 +236,98 @@ export async function POST(request: NextRequest) {
     // Normalize weight to kg for storage
     const normalizedWeight = normalizeWeight(weightLogInput.weight, weightLogInput.unit);
     
-    // TODO: Implement actual weight log creation
-    // This would typically involve:
-    // 1. Verifying the user is a participant in the challenge
-    // 2. Checking if the challenge is active and within the logging period
-    // 3. Creating the weight log document in Firestore
-    // 4. Updating any related statistics or calculations
-    
-    // For now, return mock success response
-    const mockWeightLog = {
-      id: `mock_${Date.now()}`,
+    console.log('Weight logs POST: Weight normalized:', {
+      original: `${weightLogInput.weight} ${weightLogInput.unit}`,
+      normalized: `${normalizedWeight} kg`
+    });
+
+    // Initialize Firebase Admin SDK
+    console.log('Weight logs POST: Initializing Firebase Admin SDK...');
+    const db = getAdminFirestore();
+
+    // Verify the user is a participant in the challenge
+    console.log('Weight logs POST: Verifying challenge participation...');
+    const challengeRef = db.collection('challenges').doc(weightLogInput.challengeId);
+    const challengeDoc = await challengeRef.get();
+
+    if (!challengeDoc.exists) {
+      console.log('Weight logs POST: Challenge not found:', weightLogInput.challengeId);
+      return NextResponse.json(
+        createValidationErrorResponse([{
+          field: 'challengeId',
+          message: 'Challenge not found',
+          code: 'CHALLENGE_NOT_FOUND'
+        }]),
+        { status: 404 }
+      );
+    }
+
+    const challengeData = challengeDoc.data();
+    if (!challengeData) {
+      console.log('Weight logs POST: Challenge data not found');
+      return NextResponse.json(
+        createValidationErrorResponse([{
+          field: 'challengeId',
+          message: 'Challenge data not found',
+          code: 'CHALLENGE_DATA_NOT_FOUND'
+        }]),
+        { status: 404 }
+      );
+    }
+
+    // Check if user is a participant
+    const participants = challengeData.participants || [];
+    if (!participants.includes(user.uid)) {
+      console.log('Weight logs POST: User not a participant in challenge:', {
+        userId: user.uid,
+        challengeId: weightLogInput.challengeId
+      });
+      return NextResponse.json(
+        createValidationErrorResponse([{
+          field: 'challengeId',
+          message: 'You are not a participant in this challenge',
+          code: 'NOT_PARTICIPANT'
+        }]),
+        { status: 403 }
+      );
+    }
+
+    // Create the weight log document
+    console.log('Weight logs POST: Creating weight log document...');
+    const weightLogData = {
       userId: user.uid,
       challengeId: weightLogInput.challengeId,
       weight: normalizedWeight,
       unit: 'kg', // Always store in kg
+      weighedAt: new Date(weightLogInput.loggedAt),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const weightLogRef = await db.collection('weight_logs').add(weightLogData);
+    const weightLogId = weightLogRef.id;
+
+    console.log('Weight logs POST: Weight log created successfully with ID:', weightLogId);
+
+    // Return the created weight log
+    const createdWeightLog = {
+      id: weightLogId,
+      userId: user.uid,
+      challengeId: weightLogInput.challengeId,
+      weight: normalizedWeight,
+      unit: 'kg',
       loggedAt: new Date(weightLogInput.loggedAt).toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('Weight logs POST: Returning mock success response');
+    console.log('Weight logs POST: Returning success response');
     
     return NextResponse.json(
-      createSuccessResponse(mockWeightLog, 'Weight log created successfully'),
+      createSuccessResponse({
+        weightLog: createdWeightLog,
+        message: 'Weight log created successfully',
+      }),
       { 
         status: 201,
         headers: {

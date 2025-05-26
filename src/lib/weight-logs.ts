@@ -92,6 +92,44 @@ export async function createWeightLog(data: {
 }
 
 /**
+ * Update an existing weight log
+ */
+export async function updateWeightLog(logId: string, data: {
+  weight: number;
+  unit?: 'kg' | 'lbs';
+  loggedAt: Date;
+  challengeId: string;
+}): Promise<WeightLog> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`/api/weight-logs/${logId}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        ...data,
+        loggedAt: data.loggedAt.toISOString(),
+      }),
+    });
+
+    const result: ApiResponse<{ weightLog: WeightLog }> = await response.json();
+    
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to update weight log');
+    }
+    
+    return {
+      ...result.data.weightLog,
+      loggedAt: new Date(result.data.weightLog.loggedAt),
+      createdAt: new Date(result.data.weightLog.createdAt),
+      updatedAt: new Date(result.data.weightLog.updatedAt),
+    };
+  } catch (error) {
+    console.error('Error updating weight log:', error);
+    throw error;
+  }
+}
+
+/**
  * Delete a weight log
  */
 export async function deleteWeightLog(logId: string): Promise<void> {

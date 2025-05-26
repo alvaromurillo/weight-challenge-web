@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import WeightLogForm from '@/components/forms/WeightLogForm';
 import BulkWeightLogForm from '@/components/forms/BulkWeightLogForm';
+import EditWeightLogForm from '@/components/forms/EditWeightLogForm';
 import WeightLogHistory from '@/components/weight/WeightLogHistory';
-import { Challenge } from '@/types';
+import { Challenge, WeightLog } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function WeightLoggingPage() {
@@ -21,6 +22,7 @@ export default function WeightLoggingPage() {
   const [entryMode, setEntryMode] = useState<'single' | 'bulk'>('single');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [editingLog, setEditingLog] = useState<WeightLog | null>(null);
 
   useEffect(() => {
     const fetchChallenges = async () => {
@@ -68,6 +70,21 @@ export default function WeightLoggingPage() {
   const handleShowForm = (mode: 'single' | 'bulk') => {
     setEntryMode(mode);
     setShowForm(true);
+    setEditingLog(null); // Clear any editing state
+  };
+
+  const handleEditLog = (log: WeightLog) => {
+    setEditingLog(log);
+    setShowForm(false); // Hide the create form
+  };
+
+  const handleEditSuccess = () => {
+    setEditingLog(null);
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleEditCancel = () => {
+    setEditingLog(null);
   };
 
   if (!user) {
@@ -144,7 +161,7 @@ export default function WeightLoggingPage() {
                 </Select>
               </div>
               
-              {selectedChallengeId && !showForm && (
+              {selectedChallengeId && !showForm && !editingLog && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Button onClick={() => handleShowForm('single')} className="w-full">
                     <Plus className="h-4 w-4 mr-2" />
@@ -197,10 +214,20 @@ export default function WeightLoggingPage() {
         </Tabs>
       )}
 
+      {/* Edit Weight Log Form */}
+      {editingLog && (
+        <EditWeightLogForm
+          weightLog={editingLog}
+          onSuccess={handleEditSuccess}
+          onCancel={handleEditCancel}
+        />
+      )}
+
       {/* Weight History */}
       {selectedChallengeId && (
         <WeightLogHistory
           challengeId={selectedChallengeId}
+          onEdit={handleEditLog}
           refreshTrigger={refreshTrigger}
         />
       )}
