@@ -38,20 +38,21 @@ export default function DashboardPage() {
     const unsubscribes: (() => void)[] = [];
     const weights: Record<string, number | null> = {};
 
-    challenges.forEach((challenge) => {
-      const unsubscribe = subscribeToUserWeightLogs(user.uid, challenge.id, (logs) => {
-        // Update latest weight
-        if (logs.length > 0) {
-          weights[challenge.id] = logs[0].weight; // logs are ordered by loggedAt desc
-        } else {
-          weights[challenge.id] = null;
-        }
-        
-        setUserWeights({ ...weights });
+    // Since weight logs are now global, we only need one subscription for the user
+    const unsubscribe = subscribeToUserWeightLogs(user.uid, (logs) => {
+      // Get the latest weight (same for all challenges now)
+      const latestWeight = logs.length > 0 ? logs[0].weight : null;
+      
+      // Set the same weight for all challenges since weights are now global
+      const globalWeights: Record<string, number | null> = {};
+      challenges.forEach((challenge) => {
+        globalWeights[challenge.id] = latestWeight;
       });
       
-      unsubscribes.push(unsubscribe);
+      setUserWeights(globalWeights);
     });
+    
+    unsubscribes.push(unsubscribe);
 
     return () => {
       unsubscribes.forEach(unsubscribe => unsubscribe());

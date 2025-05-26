@@ -68,13 +68,13 @@ export default function ChallengeDetailsClient({ challengeId, initialChallenge }
     return () => unsubscribe();
   }, [challengeId]);
 
-  // Real-time user weight logs subscription
+  // Real-time user weight logs subscription (now global, not per challenge)
   useEffect(() => {
-    if (!user || !challengeId) return;
+    if (!user) return;
 
-    const unsubscribe = subscribeToUserWeightLogs(user.uid, challengeId, (weightLogs) => {
+    const unsubscribe = subscribeToUserWeightLogs(user.uid, (weightLogs) => {
       setUserWeightLogs(weightLogs);
-      // Update latest weight
+      // Update latest weight (same for all challenges now)
       if (weightLogs.length > 0) {
         setUserLatestWeight(weightLogs[0].weight);
       } else {
@@ -83,7 +83,7 @@ export default function ChallengeDetailsClient({ challengeId, initialChallenge }
     });
 
     return () => unsubscribe();
-  }, [user, challengeId]);
+  }, [user]);
 
   // Real-time challenge weight logs subscription
   useEffect(() => {

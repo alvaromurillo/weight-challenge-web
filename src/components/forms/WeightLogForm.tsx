@@ -30,12 +30,11 @@ const weightLogSchema = z.object({
 type WeightLogFormData = z.infer<typeof weightLogSchema>;
 
 interface WeightLogFormProps {
-  challengeId: string;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-export default function WeightLogForm({ challengeId, onSuccess, onCancel }: WeightLogFormProps) {
+export default function WeightLogForm({ onSuccess, onCancel }: WeightLogFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const api = useAuthenticatedApi();
 
@@ -60,12 +59,16 @@ export default function WeightLogForm({ challengeId, onSuccess, onCancel }: Weig
       // Convert weight to kg if needed
       const weightInKg = data.unit === 'lbs' ? data.weight * 0.453592 : data.weight;
 
-      await api.post('/api/weight-logs', {
-        challengeId,
+      const response = await api.post('/api/weight-logs', {
         weight: weightInKg,
         unit: 'kg', // Always store in kg
         loggedAt: loggedAt.toISOString(),
-      });
+      }) as { data?: { weightLog?: any } };
+
+      // Show success message
+      if (response.data?.weightLog) {
+        console.log('✅ Weight logged successfully');
+      }
 
       form.reset();
       onSuccess?.();
@@ -85,7 +88,7 @@ export default function WeightLogForm({ challengeId, onSuccess, onCancel }: Weig
           Log Weight
         </CardTitle>
         <CardDescription>
-          Record your current weight for this challenge
+          Record your current weight - it will be available across all your challenges
         </CardDescription>
       </CardHeader>
       <CardContent>

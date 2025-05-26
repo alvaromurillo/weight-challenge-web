@@ -134,7 +134,7 @@ export const getChallenge = async (challengeId: string): Promise<Challenge | nul
 };
 
 // Get weight logs for a user in a specific challenge
-export const getUserWeightLogs = async (userId: string, challengeId: string): Promise<WeightLog[]> => {
+export const getUserWeightLogs = async (userId: string): Promise<WeightLog[]> => {
   if (!db) {
     throw new Error('Firestore not initialized');
   }
@@ -144,7 +144,6 @@ export const getUserWeightLogs = async (userId: string, challengeId: string): Pr
     const q = query(
       weightLogsRef,
       where('userId', '==', userId),
-      where('challengeId', '==', challengeId),
       orderBy('weighedAt', 'desc')
     );
     
@@ -156,7 +155,6 @@ export const getUserWeightLogs = async (userId: string, challengeId: string): Pr
       weightLogs.push({
         id: doc.id,
         userId: data.userId,
-        challengeId: data.challengeId,
         weight: data.weight,
         unit: data.unit,
         loggedAt: convertTimestamp(data.weighedAt),
@@ -172,17 +170,31 @@ export const getUserWeightLogs = async (userId: string, challengeId: string): Pr
   }
 };
 
-// Get all weight logs for a challenge (for dashboard)
+// Get all weight logs for users in a challenge (for dashboard)
 export const getChallengeWeightLogs = async (challengeId: string): Promise<WeightLog[]> => {
   if (!db) {
     throw new Error('Firestore not initialized');
   }
   
   try {
+    // First get the challenge to get participant IDs
+    const challengeDoc = await getDoc(doc(db, 'challenges', challengeId));
+    if (!challengeDoc.exists()) {
+      return [];
+    }
+    
+    const challengeData = challengeDoc.data();
+    const participantIds = challengeData.participants || [];
+    
+    if (participantIds.length === 0) {
+      return [];
+    }
+    
+    // Get weight logs for all participants
     const weightLogsRef = collection(db, 'weight_logs');
     const q = query(
       weightLogsRef,
-      where('challengeId', '==', challengeId),
+      where('userId', 'in', participantIds),
       orderBy('weighedAt', 'desc')
     );
     
@@ -194,7 +206,6 @@ export const getChallengeWeightLogs = async (challengeId: string): Promise<Weigh
       weightLogs.push({
         id: doc.id,
         userId: data.userId,
-        challengeId: data.challengeId,
         weight: data.weight,
         unit: data.unit,
         loggedAt: convertTimestamp(data.weighedAt),
@@ -296,10 +307,9 @@ export const subscribeToChallenge = (
   });
 };
 
-// Real-time listener for user's weight logs in a specific challenge
+// Real-time listener for user's weight logs (now global, not per challenge)
 export const subscribeToUserWeightLogs = (
   userId: string,
-  challengeId: string,
   callback: (weightLogs: WeightLog[]) => void
 ): (() => void) => {
   if (!db) {
@@ -310,7 +320,6 @@ export const subscribeToUserWeightLogs = (
   const q = query(
     weightLogsRef,
     where('userId', '==', userId),
-    where('challengeId', '==', challengeId),
     orderBy('weighedAt', 'desc')
   );
   
@@ -321,7 +330,6 @@ export const subscribeToUserWeightLogs = (
       weightLogs.push({
         id: doc.id,
         userId: data.userId,
-        challengeId: data.challengeId,
         weight: data.weight,
         unit: data.unit,
         loggedAt: convertTimestamp(data.weighedAt),
@@ -333,7 +341,7 @@ export const subscribeToUserWeightLogs = (
   });
 };
 
-// Real-time listener for all weight logs in a challenge
+// Real-time listener for all weight logs for participants in a challenge
 export const subscribeToChallengeWeightLogs = (
   challengeId: string,
   callback: (weightLogs: WeightLog[]) => void
@@ -342,21 +350,39 @@ export const subscribeToChallengeWeightLogs = (
     throw new Error('Firestore not initialized');
   }
   
-  const weightLogsRef = collection(db, 'weight_logs');
-  const q = query(
-    weightLogsRef,
-    where('challengeId', '==', challengeId),
-    orderBy('weighedAt', 'desc')
-  );
+  // First, subscribe to the challenge to get participant updates
+  const challengeRef = doc(db, 'challenges', challengeId);
   
-  return onSnapshot(q, (querySnapshot) => {
+  return onSnapshot(challengeRef, async (challengeDoc) => {
+    if (!challengeDoc.exists()) {
+      callback([]);
+      return;
+    }
+    
+    const challengeData = challengeDoc.data();
+    const participantIds = challengeData.participants || [];
+    
+    if (participantIds.length === 0) {
+      callback([]);
+      return;
+    }
+    
+    // Get weight logs for all participants
+    const weightLogsRef = collection(db, 'weight_logs');
+    const q = query(
+      weightLogsRef,
+      where('userId', 'in', participantIds),
+      orderBy('weighedAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
     const weightLogs: WeightLog[] = [];
+    
     querySnapshot.forEach((doc) => {
       const data = doc.data();
       weightLogs.push({
         id: doc.id,
         userId: data.userId,
-        challengeId: data.challengeId,
         weight: data.weight,
         unit: data.unit,
         loggedAt: convertTimestamp(data.weighedAt),
@@ -364,6 +390,7 @@ export const subscribeToChallengeWeightLogs = (
         updatedAt: convertTimestamp(data.updatedAt),
       });
     });
+    
     callback(weightLogs);
   });
 };

@@ -148,6 +148,8 @@ RFC: PRD.md (Section 8.2.1 - Web Application Architecture)
 - [x] Create personal progress visualization with Chart.js
 - [x] Build challenge dashboard with participant progress
 - [x] Add weight log history and editing capabilities ✅
+- [x] Refactor weight logs to be global per user (not per challenge) ✅
+- [x] Fix API endpoints to use global weight logs instead of challenge-specific ones ✅
 - [ ] Implement offline weight logging with local storage
 - [ ] Create progress comparison views between participants
 - [ ] Add data export functionality (CSV/PDF) (FR20)

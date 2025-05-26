@@ -10,12 +10,11 @@ import { WeightLog } from '@/types';
 import { useAuthenticatedApi } from '@/hooks/useAuthenticatedFetch';
 
 interface WeightLogHistoryProps {
-  challengeId: string;
   onEdit?: (log: WeightLog) => void;
   refreshTrigger?: number;
 }
 
-export default function WeightLogHistory({ challengeId, onEdit, refreshTrigger }: WeightLogHistoryProps) {
+export default function WeightLogHistory({ onEdit, refreshTrigger }: WeightLogHistoryProps) {
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +25,7 @@ export default function WeightLogHistory({ challengeId, onEdit, refreshTrigger }
       setIsLoading(true);
       setError(null);
       
-      const result = await api.get(`/api/weight-logs?challengeId=${challengeId}`);
+      const result = await api.get('/api/weight-logs');
       if (result.success) {
         // The API returns { success: true, data: { weightLogs: [...], count: number, ... } }
         const weightLogs = result.data.weightLogs || [];
@@ -47,7 +46,7 @@ export default function WeightLogHistory({ challengeId, onEdit, refreshTrigger }
     } finally {
       setIsLoading(false);
     }
-  }, [challengeId, api]);
+  }, [api]);
 
   useEffect(() => {
     fetchWeightLogs();

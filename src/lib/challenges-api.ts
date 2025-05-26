@@ -114,13 +114,14 @@ export const getChallenge = async (challengeId: string): Promise<Challenge | nul
 };
 
 /**
- * Fetch user weight logs for a specific challenge using API endpoint
+ * Fetch user weight logs (now global, not per challenge) using API endpoint
  */
-export const getUserWeightLogs = async (userId: string, challengeId: string): Promise<WeightLog[]> => {
+export const getUserWeightLogs = async (userId: string, challengeId?: string): Promise<WeightLog[]> => {
   try {
     const headers = await getAuthHeaders();
     
-    const response = await fetch(`/api/weight-logs/user/${userId}/${challengeId}`, {
+    // Use global weight logs endpoint - challengeId parameter is kept for backward compatibility but ignored
+    const response = await fetch(`/api/weight-logs?userId=${userId}`, {
       method: 'GET',
       headers,
     });
@@ -345,14 +346,14 @@ export const subscribeToChallenge = (
 };
 
 /**
- * Real-time listener for user weight logs in a specific challenge using polling
+ * Real-time listener for user weight logs (now global, not per challenge) using polling
  * This replaces the Firestore onSnapshot functionality
  */
 export const subscribeToUserWeightLogs = (
   userId: string,
-  challengeId: string,
   callback: (weightLogs: WeightLog[]) => void,
-  pollInterval: number = 5000 // 5 seconds
+  pollInterval: number = 5000, // 5 seconds
+  challengeId?: string // Kept for backward compatibility but ignored
 ) => {
   let isActive = true;
   
@@ -360,7 +361,8 @@ export const subscribeToUserWeightLogs = (
     if (!isActive) return;
     
     try {
-      const weightLogs = await getUserWeightLogs(userId, challengeId);
+      // Get global weight logs for user (challengeId is ignored)
+      const weightLogs = await getUserWeightLogs(userId);
       callback(weightLogs);
     } catch (error) {
       console.error('Error in subscribeToUserWeightLogs:', error);
@@ -470,13 +472,14 @@ export const getChallengeParticipants = async (challengeId: string, participantI
 };
 
 /**
- * Get user's latest weight for a challenge using API endpoint
+ * Get user's latest weight (now global, not per challenge) using API endpoint
  */
-export const getUserLatestWeight = async (userId: string, challengeId: string): Promise<number | null> => {
+export const getUserLatestWeight = async (userId: string, challengeId?: string): Promise<number | null> => {
   try {
     const headers = await getAuthHeaders();
     
-    const response = await fetch(`/api/weight-logs/user/${userId}/${challengeId}?latest=true`, {
+    // Use global weight logs endpoint - challengeId parameter is kept for backward compatibility but ignored
+    const response = await fetch(`/api/weight-logs?userId=${userId}&limit=1`, {
       method: 'GET',
       headers,
     });
@@ -491,7 +494,9 @@ export const getUserLatestWeight = async (userId: string, challengeId: string): 
       throw new Error(data.error || 'Failed to fetch latest weight');
     }
 
-    return data.data.latestWeight;
+    // Get the latest weight from the first log (they're ordered by date desc)
+    const weightLogs = data.data.weightLogs;
+    return weightLogs.length > 0 ? weightLogs[0].weight : null;
   } catch (error) {
     console.error('Error fetching latest weight:', error);
     return null;

@@ -15,51 +15,16 @@ import { format } from 'date-fns';
 
 export default function ProgressPage() {
   const { user } = useAuth();
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [selectedChallengeId, setSelectedChallengeId] = useState<string>('');
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch user's challenges
-  useEffect(() => {
-    async function loadChallenges() {
-      if (!user) return;
-      
-      try {
-        setLoading(true);
-        const userChallenges = await getUserChallenges(user.uid);
-        setChallenges(userChallenges);
-        
-        // Auto-select the first active challenge
-        const activeChallenge = userChallenges.find((c: Challenge) => c.isActive);
-        if (activeChallenge) {
-          setSelectedChallengeId(activeChallenge.id);
-        } else if (userChallenges.length > 0) {
-          setSelectedChallengeId(userChallenges[0].id);
-        }
-      } catch (err) {
-        console.error('Error loading challenges:', err);
-        setError('Failed to load challenges');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadChallenges();
-  }, [user]);
-
-  // Fetch weight logs for selected challenge
+  // Fetch weight logs for user (now global, not per challenge)
   useEffect(() => {
     async function loadWeightLogs() {
-      if (!selectedChallengeId) {
-        setWeightLogs([]);
-        return;
-      }
-      
       try {
         setLoading(true);
-        const logs = await fetchWeightLogs(selectedChallengeId);
+        const logs = await fetchWeightLogs();
         setWeightLogs(logs);
         setError(null);
       } catch (err) {
@@ -72,12 +37,11 @@ export default function ProgressPage() {
     }
 
     loadWeightLogs();
-  }, [selectedChallengeId]);
+  }, []);
 
-  const selectedChallenge = challenges.find(c => c.id === selectedChallengeId);
   const progressStats = calculateProgressStats(weightLogs);
 
-  if (loading && challenges.length === 0) {
+  if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -101,38 +65,7 @@ export default function ProgressPage() {
     );
   }
 
-  if (challenges.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">My Progress</h1>
-            <p className="text-muted-foreground">
-              Track your weight loss journey and see your achievements.
-            </p>
-          </div>
-        </div>
-        
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">No Challenges Yet</h3>
-            <p className="text-muted-foreground mb-6">
-              Join or create a challenge to start tracking your progress.
-            </p>
-            <div className="flex gap-4 justify-center">
-              <Button asChild>
-                <Link href="/challenges/create">Create Challenge</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/challenges/join">Join Challenge</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+
 
   return (
     <div className="space-y-6">
@@ -151,30 +84,7 @@ export default function ProgressPage() {
         </Button>
       </div>
 
-      {/* Challenge Selector */}
-      {challenges.length > 1 && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <label htmlFor="challenge-select" className="text-sm font-medium">
-                Challenge:
-              </label>
-              <Select value={selectedChallengeId} onValueChange={setSelectedChallengeId}>
-                <SelectTrigger className="w-[300px]">
-                  <SelectValue placeholder="Select a challenge" />
-                </SelectTrigger>
-                <SelectContent>
-                  {challenges.map((challenge) => (
-                    <SelectItem key={challenge.id} value={challenge.id}>
-                      {challenge.name} {challenge.isActive ? '(Active)' : '(Ended)'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       {error && (
         <Card className="border-destructive">
@@ -265,10 +175,7 @@ export default function ProgressPage() {
         <CardHeader>
           <CardTitle>Weight Progress Chart</CardTitle>
           <CardDescription>
-            {selectedChallenge 
-              ? `Your weight tracking for "${selectedChallenge.name}"`
-              : 'Your weight tracking over time'
-            }
+            Your weight tracking over time - visible across all your challenges
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -285,10 +192,7 @@ export default function ProgressPage() {
               <TrendingUp className="h-12 w-12 mx-auto mb-4" />
               <p className="text-lg font-medium">No data to display</p>
               <p className="text-sm mb-4">
-                {selectedChallenge 
-                  ? `Start logging your weight for "${selectedChallenge.name}" to see your progress chart`
-                  : 'Start logging your weight to see your progress chart'
-                }
+                Start logging your weight to see your progress chart
               </p>
               <Button asChild variant="outline">
                 <Link href="/weight-logging">
@@ -301,47 +205,7 @@ export default function ProgressPage() {
         </CardContent>
       </Card>
 
-      {/* Challenge Info */}
-      {selectedChallenge && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Challenge Details</CardTitle>
-            <CardDescription>Information about your selected challenge</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <h4 className="font-medium mb-1">Challenge Name</h4>
-                <p className="text-sm text-muted-foreground">{selectedChallenge.name}</p>
-              </div>
-              <div>
-                <h4 className="font-medium mb-1">Status</h4>
-                <p className="text-sm text-muted-foreground">
-                  {selectedChallenge.isActive ? 'Active' : 'Ended'}
-                </p>
-              </div>
-              <div>
-                <h4 className="font-medium mb-1">Start Date</h4>
-                <p className="text-sm text-muted-foreground">
-                  {selectedChallenge.startDate ? format(selectedChallenge.startDate, 'PPP') : 'Not set'}
-                </p>
-              </div>
-              <div>
-                <h4 className="font-medium mb-1">End Date</h4>
-                <p className="text-sm text-muted-foreground">
-                  {format(selectedChallenge.endDate, 'PPP')}
-                </p>
-              </div>
-              {selectedChallenge.description && (
-                <div className="md:col-span-2">
-                  <h4 className="font-medium mb-1">Description</h4>
-                  <p className="text-sm text-muted-foreground">{selectedChallenge.description}</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
     </div>
   );
 } 

@@ -23,12 +23,12 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 /**
- * Fetch weight logs for a specific challenge and user
+ * Fetch weight logs for the current user
  */
-export async function fetchWeightLogs(challengeId: string, limit = 50): Promise<WeightLog[]> {
+export async function fetchWeightLogs(limit = 50): Promise<WeightLog[]> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`/api/weight-logs?challengeId=${challengeId}&limit=${limit}`, {
+    const response = await fetch(`/api/weight-logs?limit=${limit}`, {
       headers,
     });
     const result = await response.json();
@@ -57,7 +57,6 @@ export async function fetchWeightLogs(challengeId: string, limit = 50): Promise<
  * Create a new weight log
  */
 export async function createWeightLog(data: {
-  challengeId: string;
   weight: number;
   unit?: 'kg' | 'lbs';
   loggedAt: Date;
@@ -98,7 +97,6 @@ export async function updateWeightLog(logId: string, data: {
   weight: number;
   unit?: 'kg' | 'lbs';
   loggedAt: Date;
-  challengeId: string;
 }): Promise<WeightLog> {
   try {
     const headers = await getAuthHeaders();
@@ -203,23 +201,15 @@ export function calculateProgressStats(weightLogs: WeightLog[], startWeight?: nu
 }
 
 /**
- * Get weight logs for all user's challenges
+ * Get weight logs for the user (now global, not per challenge)
  */
-export async function fetchAllUserWeightLogs(challengeIds: string[]): Promise<Record<string, WeightLog[]>> {
-  const results: Record<string, WeightLog[]> = {};
-  
-  await Promise.all(
-    challengeIds.map(async (challengeId) => {
-      try {
-        results[challengeId] = await fetchWeightLogs(challengeId);
-      } catch (error) {
-        console.error(`Error fetching weight logs for challenge ${challengeId}:`, error);
-        results[challengeId] = [];
-      }
-    })
-  );
-  
-  return results;
+export async function fetchAllUserWeightLogs(): Promise<WeightLog[]> {
+  try {
+    return await fetchWeightLogs();
+  } catch (error) {
+    console.error('Error fetching user weight logs:', error);
+    return [];
+  }
 }
 
 /**

@@ -62,7 +62,6 @@ export default function EditWeightLogForm({ weightLog, onSuccess, onCancel }: Ed
         weight: data.weight,
         unit: data.unit,
         loggedAt: data.loggedAt,
-        challengeId: weightLog.challengeId,
       });
 
       onSuccess?.(updatedLog);

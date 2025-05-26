@@ -166,7 +166,6 @@ export interface JoinChallengeInput {
 }
 
 export interface CreateWeightLogInput {
-  challengeId: string;
   weight: number;
   unit?: 'kg' | 'lbs';
   loggedAt: string | Date;
@@ -358,15 +357,6 @@ export function validateJoinChallenge(input: JoinChallengeInput): ValidationResu
  */
 export function validateCreateWeightLog(input: CreateWeightLogInput): ValidationResult {
   const errors: Array<{ field: string; message: string; code?: string }> = [];
-
-  // Validate challenge ID
-  if (!isValidString(input.challengeId, VALIDATION_CONSTANTS.STRING_LENGTHS.USER_ID.MAX)) {
-    errors.push({
-      field: 'challengeId',
-      message: 'Challenge ID must be a non-empty string',
-      code: 'INVALID_CHALLENGE_ID'
-    });
-  }
 
   // Validate weight
   if (!isValidWeight(input.weight)) {

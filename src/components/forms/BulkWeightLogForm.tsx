@@ -33,12 +33,11 @@ const bulkWeightLogSchema = z.object({
 type BulkWeightLogFormData = z.infer<typeof bulkWeightLogSchema>;
 
 interface BulkWeightLogFormProps {
-  challengeId: string;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-export default function BulkWeightLogForm({ challengeId, onSuccess, onCancel }: BulkWeightLogFormProps) {
+export default function BulkWeightLogForm({ onSuccess, onCancel }: BulkWeightLogFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState({ current: 0, total: 0 });
 
@@ -101,7 +100,6 @@ export default function BulkWeightLogForm({ challengeId, onSuccess, onCancel }: 
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            challengeId,
             weight: weightInKg,
             unit: 'kg', // Always store in kg
             loggedAt: loggedAt.toISOString(),
@@ -113,7 +111,13 @@ export default function BulkWeightLogForm({ challengeId, onSuccess, onCancel }: 
           throw new Error(`Entry ${i + 1}: ${error.message || 'Failed to log weight'}`);
         }
 
-        results.push(await response.json());
+        const result = await response.json();
+        results.push(result);
+        
+        // Log success for the first entry
+        if (i === 0 && result.data?.weightLog) {
+          console.log('✅ Weight logs created successfully');
+        }
       }
 
       form.reset();
@@ -135,7 +139,7 @@ export default function BulkWeightLogForm({ challengeId, onSuccess, onCancel }: 
           Bulk Weight Entry
         </CardTitle>
         <CardDescription>
-          Add multiple weight entries at once. Perfect for catching up on missed logs or importing historical data.
+          Add multiple weight entries at once - each will be available across all your challenges. Perfect for catching up on missed logs or importing historical data.
         </CardDescription>
       </CardHeader>
       <CardContent>

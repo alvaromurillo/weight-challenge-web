@@ -80,11 +80,13 @@ export default function ChallengesClient({ initialChallenges }: ChallengesClient
         const weights: Record<string, number | null> = {};
         const stats: Record<string, ChallengeStats> = {};
         
+        // Get user's latest weight once (now global, same for all challenges)
+        const userLatestWeight = await getUserLatestWeight(user.uid);
+        
         for (const challenge of challengesData) {
           try {
-            // Fetch user's latest weight
-            const weight = await getUserLatestWeight(user.uid, challenge.id);
-            weights[challenge.id] = weight;
+            // Set the same weight for all challenges since weights are now global
+            weights[challenge.id] = userLatestWeight;
 
             // Fetch participant data to calculate stats
             const participants = await getChallengeParticipants(challenge.id, challenge.participants);
@@ -96,7 +98,7 @@ export default function ChallengesClient({ initialChallenges }: ChallengesClient
             };
           } catch (error) {
             console.error(`Error fetching data for challenge ${challenge.id}:`, error);
-            weights[challenge.id] = null;
+            weights[challenge.id] = userLatestWeight;
             stats[challenge.id] = {
               participantCount: challenge.participants.length,
               activeParticipants: 0

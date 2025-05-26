@@ -31,7 +31,6 @@ export interface Challenge {
 export interface WeightLog {
   id: string;
   userId: string;
-  challengeId: string;
   weight: number;
   unit: 'kg' | 'lbs';
   loggedAt: Date;

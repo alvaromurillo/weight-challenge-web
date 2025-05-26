@@ -198,7 +198,6 @@ export default function WeightLoggingPage() {
           
           <TabsContent value="single" className="mt-6">
             <WeightLogForm
-              challengeId={selectedChallengeId}
               onSuccess={handleWeightLogged}
               onCancel={() => setShowForm(false)}
             />
@@ -206,7 +205,6 @@ export default function WeightLoggingPage() {
           
           <TabsContent value="bulk" className="mt-6">
             <BulkWeightLogForm
-              challengeId={selectedChallengeId}
               onSuccess={handleWeightLogged}
               onCancel={() => setShowForm(false)}
             />
@@ -224,13 +222,10 @@ export default function WeightLoggingPage() {
       )}
 
       {/* Weight History */}
-      {selectedChallengeId && (
-        <WeightLogHistory
-          challengeId={selectedChallengeId}
-          onEdit={handleEditLog}
-          refreshTrigger={refreshTrigger}
-        />
-      )}
+      <WeightLogHistory
+        onEdit={handleEditLog}
+        refreshTrigger={refreshTrigger}
+      />
     </div>
   );
 } 
