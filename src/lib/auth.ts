@@ -9,16 +9,23 @@ import {
 } from 'firebase/auth';
 import { auth } from './firebase';
 
-// Action code settings for magic link - function to get dynamic URL
+// Action code settings for magic link - automatically detect the current domain
 const getActionCodeSettings = (): ActionCodeSettings => {
-  const url = process.env.NEXT_PUBLIC_APP_URL 
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/auth-action`
-    : typeof window !== 'undefined' 
-      ? `${window.location.origin}/auth-action`
-      : 'http://localhost:5002/auth-action'; // Default fallback for emulator
+  // In browser environment, use current origin
+  if (typeof window !== 'undefined') {
+    const url = `${window.location.origin}/auth-action`;
+    console.log('🔗 Using browser-detected URL for magic link:', url);
+    return {
+      url,
+      handleCodeInApp: true,
+    };
+  }
   
+  // Server-side fallback - use localhost for development
+  const fallbackUrl = 'http://localhost:3000/auth-action';
+  console.log('🔗 Using server-side fallback URL for magic link:', fallbackUrl);
   return {
-    url,
+    url: fallbackUrl,
     handleCodeInApp: true,
   };
 };
