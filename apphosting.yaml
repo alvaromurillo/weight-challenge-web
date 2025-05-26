@@ -8,36 +8,24 @@ runConfig:
   
   # Environment variables for Firebase SDKs
   env:
-    # Firebase Admin SDK configuration
-    # In production, FIREBASE_CONFIG will be automatically set by App Hosting
-    # For custom configuration, uncomment and modify:
-    # - variable: FIREBASE_CONFIG
-    #   value: '{"projectId":"weight-challenge-app-dev","databaseURL":"https://weight-challenge-app-dev-default-rtdb.firebaseio.com"}'
     
-    # Firebase JavaScript SDK configuration
-    # FIREBASE_WEBAPP_CONFIG is automatically set by App Hosting
-    # For custom configuration, uncomment and modify:
-    # - variable: FIREBASE_WEBAPP_CONFIG
-    #   value: '{"apiKey":"your-api-key","appId":"your-app-id","authDomain":"weight-challenge-app-dev.firebaseapp.com","databaseURL":"https://weight-challenge-app-dev-default-rtdb.firebaseio.com","messagingSenderId":"742316431711","projectId":"weight-challenge-app-dev","storageBucket":"weight-challenge-app-dev.firebasestorage.app"}'
+    - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+      value: "AIzaSyBzSnpSZ2fRq5cIG3hXMuqYXazqri325uI"
     
-    # Application environment
-    - variable: NODE_ENV
-      value: production
+    - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+      value: "weight-challenge-app-dev.firebaseapp.com"
     
-    # Firebase service account key for production (if needed)
-    # This should be set as a secret in the Firebase console
-    # - variable: FIREBASE_SERVICE_ACCOUNT_KEY
-    #   secret: firebase-service-account-key
-
-# Build configuration
-buildConfig:
-  # Build command
-  commands:
-    - npm ci
-    - npm run build
-  
-  # Output directory
-  outputDir: .next
+    - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+      value: "weight-challenge-app-dev"
+    
+    - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+      value: "weight-challenge-app-dev.firebasestorage.app"
+    
+    - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+      value: "742316431711"
+    
+    - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+      value: "1:742316431711:web:886c310185aec80dc63eea"
 
 # Optional: CPU and memory allocation
 # cpu: 1
