@@ -7,9 +7,9 @@ export async function GET() {
     
     // Import Firebase functions
     const { getFunctions, httpsCallable } = await import('firebase/functions');
-    const getFirebaseApp = (await import('@/lib/firebase')).default;
+    const firebaseApp = (await import('@/lib/firebase')).default;
     
-    const functions = getFunctions(getFirebaseApp());
+    const functions = getFunctions(firebaseApp);
     const createTestMembership = httpsCallable(functions, 'createTestMembership');
     
     console.log('Debug create membership: Calling Cloud Function');

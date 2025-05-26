@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { getFunctions } from 'firebase/functions'
+import { getStorage } from 'firebase/storage'
 
 // Firebase configuration with fallbacks for development
 // In production (Firebase App Hosting), these will be provided by apphosting.yaml
@@ -34,6 +36,15 @@ export const auth = getAuth(app);
 // Initialize Firestore
 export const db = getFirestore(app);
 
+// Initialize Firebase Functions
+export const functions = getFunctions(app);
+
+// Initialize Firebase Storage
+export const storage = getStorage(app);
+
 console.log('✅ Firebase client initialized successfully');
 
 export { app as firebaseApp }
+
+// Default export for the app
+export default app;
